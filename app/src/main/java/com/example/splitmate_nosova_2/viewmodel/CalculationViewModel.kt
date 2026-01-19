@@ -6,43 +6,53 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 data class CalculationResult(
-    val id: Int,
-    val tipAmount: Double,
-    val totalWithTip: Double,
+    val id: Long,
+    val bill: Double,
+    val people: Int,
+    val tip: Double,
+    val total: Double,
     val perPerson: Double
 )
 
 class CalculationViewModel : ViewModel() {
-    val billAmount = MutableStateFlow("")
-    val numPeople = MutableStateFlow("")
 
-    // Список для истории (бонусное задание) [cite: 24]
+    private val _billAmount = MutableStateFlow("")
+    val billAmount = _billAmount.asStateFlow()
+
+    private val _numPeople = MutableStateFlow("")
+    val numPeople = _numPeople.asStateFlow()
+
     private val _history = MutableStateFlow<List<CalculationResult>>(emptyList())
     val history = _history.asStateFlow()
 
-    // Логика расчетов [cite: 16, 17, 18]
-    fun getTipAmount(): Double = (billAmount.value.toDoubleOrNull() ?: 0.0) * 0.10
-    fun getTotalWithTip(): Double = (billAmount.value.toDoubleOrNull() ?: 0.0) + getTipAmount()
-    fun getPerPerson(): Double {
-        val people = numPeople.value.toIntOrNull() ?: 1
-        return getTotalWithTip() / if (people > 0) people else 1
+    fun onBillChange(input: String) { _billAmount.value = input }
+    fun onPeopleChange(input: String) { _numPeople.value = input }
+
+    fun isValid(): Boolean {
+        val cleanBill = _billAmount.value.trim().replace(',', '.')
+        val cleanPeople = _numPeople.value.trim()
+
+        val bill = cleanBill.toDoubleOrNull() ?: 0.0
+        val people = cleanPeople.toIntOrNull() ?: 0
+
+        return bill > 0 && bill < 1_000_000 && people > 0 && people < 1000
+    }
+    fun calculate(): Long {
+        val b = _billAmount.value.trim().replace(',', '.').toDouble()
+        val p = _numPeople.value.trim().toInt()
+
+        val tip = b * 0.10
+        val total = b + tip
+        val perPerson = total / p
+
+        val newId = System.currentTimeMillis()
+        val result = CalculationResult(newId, b, p, tip, total, perPerson)
+
+        _history.update { it + result }
+        return newId
     }
 
-    // Сохранение в историю (максимум 5 записей)
-    fun saveToHistory(id: Int) {
-        val newResult = CalculationResult(
-            id = id,
-            tipAmount = getTipAmount(),
-            totalWithTip = getTotalWithTip(),
-            perPerson = getPerPerson()
-        )
-        _history.update { current ->
-            (listOf(newResult) + current).take(5)
-        }
-    }
-
-    fun resetData() {
-        billAmount.value = ""
-        numPeople.value = ""
+    fun getResultById(id: Long): CalculationResult? {
+        return _history.value.find { it.id == id }
     }
 }

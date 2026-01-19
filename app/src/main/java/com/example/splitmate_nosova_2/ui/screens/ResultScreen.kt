@@ -8,22 +8,32 @@ import androidx.compose.ui.unit.dp
 import com.example.splitmate_nosova_2.viewmodel.CalculationViewModel
 
 @Composable
-fun ResultScreen(viewModel: CalculationViewModel, onBackToEdit: () -> Unit, onNewCalculation: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
-        Text("Results:", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(10.dp))
-        Text("Tip Amount: ${viewModel.getTipAmount()}") // [cite: 16]
-        Text("Total with Tip: ${viewModel.getTotalWithTip()}") // [cite: 17]
-        Text("Per Person: ${viewModel.getPerPerson()}") // [cite: 18]
+fun ResultScreen(viewModel: CalculationViewModel, calcId: Long) {
+    val result = viewModel.getResultById(calcId)
 
-        Spacer(modifier = Modifier.height(30.dp))
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+        Text("Итоги расчета", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(20.dp))
 
-        Button(onClick = onBackToEdit, modifier = Modifier.fillMaxWidth()) { // [cite: 20]
-            Text("Back to edit")
-        }
-        Spacer(modifier = Modifier.height(10.dp))
-        OutlinedButton(onClick = onNewCalculation, modifier = Modifier.fillMaxWidth()) { // [cite: 21]
-            Text("New calculation")
+        if (result != null) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Чек: ${result.bill} ₽")
+                    Text("Людей: ${result.people}")
+                    Text("Чаевые (10%): ${"%.2f".format(result.tip)} ₽")
+                    Text("Всего: ${"%.2f".format(result.total)} ₽")
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    Text(
+                        "С каждого: ${"%.2f".format(result.perPerson)} ₽",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        } else {
+            Text("Ошибка: Расчет не найден", color = MaterialTheme.colorScheme.error)
         }
     }
 }

@@ -9,7 +9,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.splitmate_nosova_2.ui.screens.*
+import com.example.splitmate_nosova_2.ui.screens.InputScreen
+import com.example.splitmate_nosova_2.ui.screens.ResultScreen
 import com.example.splitmate_nosova_2.viewmodel.CalculationViewModel
 
 class MainActivity : ComponentActivity() {
@@ -17,52 +18,23 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val navController = rememberNavController()
-            val vm: CalculationViewModel = viewModel()
+            val calcViewModel: CalculationViewModel = viewModel()
 
-            NavHost(navController = navController, startDestination = "home") {
-                // 1. Экран Home
-                composable("home") {
-                    HomeScreen(
-                        onStartClick = { navController.navigate("input") },
-                        onHistoryClick = { navController.navigate("history") }
-                    )
-                }
-
-                composable("history") {
-                    HistoryScreen(
-                        viewModel = vm,
-                        onBackClick = { navController.popBackStack() }, // Кнопка назад
-                        onResultClick = { calcId ->
-                            navController.navigate("result/$calcId")
-                        }
-                    )
-                }
-                // 2. Экран Input [cite: 8]
+            NavHost(navController = navController, startDestination = "input") {
                 composable("input") {
                     InputScreen(
-                        viewModel = vm,
-                        onCalculateClick = { amount, people ->
-                            // Генерируем ID для аргумента
-                            val calcId = (amount + people).toInt()
-                            navController.navigate("result/$calcId")
+                        viewModel = calcViewModel,
+                        onNavigateToResult = { id ->
+                            navController.navigate("result/$id")
                         }
                     )
                 }
-                // 3. Экран Result с аргументом
                 composable(
                     route = "result/{calcId}",
-                    arguments = listOf(navArgument("calcId") { type = NavType.IntType })
-                ) {
-                    ResultScreen(
-                        viewModel = vm,
-                        onBackToEdit = { navController.popBackStack() },
-                        onNewCalculation = {
-                            vm.resetData()
-                            navController.navigate("home") {
-                                popUpTo("home") { inclusive = true }
-                            }
-                        }
-                    )
+                    arguments = listOf(navArgument("calcId") { type = NavType.LongType })
+                ) { backStackEntry ->
+                    val id = backStackEntry.arguments?.getLong("calcId") ?: 0L
+                    ResultScreen(viewModel = calcViewModel, calcId = id)
                 }
             }
         }
