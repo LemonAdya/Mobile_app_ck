@@ -8,13 +8,40 @@ class ArtRepository(private val apiService: ArtApiService) {
     private var lastIiifUrl: String? = null
 
     suspend fun getArtworks(forceRefresh: Boolean = false): Pair<List<Artwork>, String> {
-        if (!forceRefresh && cachedArtworks != null) return Pair(cachedArtworks!!, lastIiifUrl!!)
-        val response = apiService.getArtworks()
-        cachedArtworks = response.data
-        lastIiifUrl = response.config.iiifUrl
-        return Pair(response.data, response.config.iiifUrl)
+        val cached = cachedArtworks
+        val url = lastIiifUrl
+        if (!forceRefresh && cached != null && url != null) {
+            return Pair(cached, url)
+        }
+
+        return try {
+            val response = apiService.getArtworks()
+            val data = response.data ?: emptyList()
+            val iiif = response.config?.iiifUrl ?: ""
+
+            cachedArtworks = data
+            lastIiifUrl = iiif
+            Pair(data, iiif)
+        } catch (e: Exception) {
+            Pair(emptyList(), "")
+        }
     }
 
-    suspend fun searchArtworks(query: String) = apiService.searchArtworks(query).let { Pair(it.data, it.config.iiifUrl) }
-    suspend fun getArtworkDetails(id: Int) = apiService.getArtworkDetails(id).let { Pair(it.data, it.config.iiifUrl) }
+    suspend fun searchArtworks(query: String): Pair<List<Artwork>, String> {
+        return try {
+            val response = apiService.searchArtworks(query)
+            Pair(response.data ?: emptyList(), response.config?.iiifUrl ?: "")
+        } catch (e: Exception) {
+            Pair(emptyList(), "")
+        }
+    }
+
+    suspend fun getArtworkDetails(id: Int): Pair<Artwork?, String> {
+        return try {
+            val response = apiService.getArtworkDetails(id)
+            Pair(response.data, response.config?.iiifUrl ?: "")
+        } catch (e: Exception) {
+            Pair(null, "")
+        }
+    }
 }

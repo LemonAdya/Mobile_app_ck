@@ -17,16 +17,21 @@ import com.example.digitalapi_nosova_3.ui.viewmodel.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ArtListScreen(viewModel: ArtViewModel, onArtworkClick: (Int) -> Unit) {
+fun ArtListScreen(
+    state: ArtUiState,
+    favorites: Set<Int>,
+    onSearch: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onToggleFavorite: (Int) -> Unit,
+    onArtworkClick: (Int) -> Unit  
+) {
     var query by remember { mutableStateOf("") }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Art App") },
                 actions = {
-                    IconButton(onClick = { viewModel.loadArtworks(true) }) {
-                        Icon(Icons.Default.Refresh, "Refresh")
-                    }
+                    IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, "Refresh") }
                 }
             )
         }
@@ -34,36 +39,32 @@ fun ArtListScreen(viewModel: ArtViewModel, onArtworkClick: (Int) -> Unit) {
         Column(Modifier.padding(p)) {
             OutlinedTextField(
                 value = query,
-                onValueChange = { query = it; viewModel.searchArtworks(it) },
+                onValueChange = { query = it; onSearch(it) },
                 modifier = Modifier.fillMaxWidth().padding(8.dp),
                 placeholder = { Text("Search...") }
             )
-            when (val s = viewModel.uiState) {
-                is ArtUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            when (state) {
+                is ArtUiState.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
                 is ArtUiState.Error -> Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
-                    Text("Error: ${s.message}")
-                    Button(onClick = { viewModel.loadArtworks() }) { Text("Retry") }
+                    Text("Error: ${state.message}"); Button(onClick = onRefresh) { Text("Retry") }
                 }
-                is ArtUiState.Empty -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No results") }
+                is ArtUiState.Empty -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No results") }
                 is ArtUiState.Success -> LazyColumn {
-                    items(s.artworks) { art ->
+                    items(state.artworks) { art ->
                         ListItem(
                             headlineContent = { Text(art.title ?: "") },
                             supportingContent = { Text(art.artistTitle ?: "") },
                             leadingContent = {
                                 AsyncImage(
-                                    model = "${s.iiifUrl}/${art.imageId}/full/200,/0/default.jpg",
+                                    model = "${state.iiifUrl}/${art.imageId}/full/200,/0/default.jpg",
                                     contentDescription = null,
                                     modifier = Modifier.size(60.dp),
                                     contentScale = ContentScale.Crop
                                 )
                             },
                             trailingContent = {
-                                IconButton(onClick = { viewModel.toggleFavorite(art.id) }) {
-                                    Icon(
-                                        if (viewModel.favorites.contains(art.id)) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                        null
-                                    )
+                                IconButton(onClick = { onToggleFavorite(art.id) }) {
+                                    Icon(if (favorites.contains(art.id)) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null)
                                 }
                             },
                             modifier = Modifier.clickable { onArtworkClick(art.id) }
@@ -77,8 +78,11 @@ fun ArtListScreen(viewModel: ArtViewModel, onArtworkClick: (Int) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ArtDetailScreen(id: Int, viewModel: ArtViewModel, onBack: () -> Unit) {
-    LaunchedEffect(id) { viewModel.loadArtworkDetails(id) }
+fun ArtDetailScreen(
+    state: DetailUiState,
+    onBack: () -> Unit,
+    onRetry: () -> Unit
+) {
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Details") }, navigationIcon = {
@@ -87,19 +91,21 @@ fun ArtDetailScreen(id: Int, viewModel: ArtViewModel, onBack: () -> Unit) {
         }
     ) { p ->
         Box(Modifier.padding(p)) {
-            when (val s = viewModel.detailUiState) {
-                is DetailUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                is DetailUiState.Error -> Text("Error: ${s.message}")
+            when (state) {
+                is DetailUiState.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
+                is DetailUiState.Error -> Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
+                    Text("Error: ${state.message}"); Button(onClick = onRetry) { Text("Retry") }
+                }
                 is DetailUiState.Success -> Column(Modifier.padding(16.dp)) {
                     AsyncImage(
-                        model = "${s.iiifUrl}/${s.artwork.imageId}/full/843,/0/default.jpg",
+                        model = "${state.iiifUrl}/${state.artwork.imageId}/full/843,/0/default.jpg",
                         contentDescription = null,
                         modifier = Modifier.fillMaxWidth().height(300.dp),
                         contentScale = ContentScale.Fit
                     )
-                    Text(s.artwork.title ?: "", style = MaterialTheme.typography.headlineMedium)
-                    Text(s.artwork.artistTitle ?: "", style = MaterialTheme.typography.titleMedium)
-                    Text(s.artwork.description ?: "No description")
+                    Text(state.artwork.title ?: "", style = MaterialTheme.typography.headlineMedium)
+                    Text(state.artwork.artistTitle ?: "", style = MaterialTheme.typography.titleMedium)
+                    Text(state.artwork.description ?: "No description")
                 }
             }
         }

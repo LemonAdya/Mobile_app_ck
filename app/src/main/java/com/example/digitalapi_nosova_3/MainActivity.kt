@@ -17,6 +17,7 @@ import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import androidx.compose.runtime.LaunchedEffect
 
 class MainActivity : ComponentActivity( ) {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,7 +29,7 @@ class MainActivity : ComponentActivity( ) {
             .build()
 
         val retrofit = Retrofit.Builder()
-            .baseUrl("https://api.artic.edu/api/v1/" )
+            .baseUrl("https://api.artic.edu/api/v1/")
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -41,28 +42,25 @@ class MainActivity : ComponentActivity( ) {
         setContent {
             val navController = rememberNavController()
 
-            NavHost(
-                navController = navController,
-                startDestination = "list"
-            ) {
+            NavHost(navController, startDestination = "list") {
                 composable("list") {
                     ArtListScreen(
-                        viewModel = viewModel,
-                        onArtworkClick = { id ->
-                            navController.navigate("detail/$id")
-                        }
+                        state = viewModel.uiState,
+                        favorites = viewModel.favorites,
+                        onSearch = { viewModel.searchArtworks(it) },
+                        onRefresh = { viewModel.loadArtworks(true) },
+                        onToggleFavorite = { viewModel.toggleFavorite(it) },
+                        onArtworkClick = { id -> navController.navigate("detail/$id") }
                     )
                 }
+                composable("detail/{id}") { backStack ->
+                    val id = backStack.arguments?.getString("id")?.toInt() ?: 0
+                    LaunchedEffect(id) { viewModel.loadArtworkDetails(id) }
 
-                composable(
-                    route = "detail/{id}",
-                    arguments = listOf(navArgument("id") { type = NavType.IntType })
-                ) { backStackEntry ->
-                    val id = backStackEntry.arguments?.getInt("id") ?: 0
                     ArtDetailScreen(
-                        id = id,
-                        viewModel = viewModel,
-                        onBack = { navController.popBackStack() }
+                        state = viewModel.detailUiState,
+                        onBack = { navController.popBackStack() },
+                        onRetry = { viewModel.loadArtworkDetails(id) }
                     )
                 }
             }

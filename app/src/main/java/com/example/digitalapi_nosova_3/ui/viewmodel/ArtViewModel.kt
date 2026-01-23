@@ -15,9 +15,10 @@ sealed interface ArtUiState {
 
 sealed interface DetailUiState {
     object Loading : DetailUiState
-    data class Success(val artwork: Artwork, val iiifUrl: String) : DetailUiState
+    data class Success(val artwork: Artwork, val iiifUrl: String) : DetailUiState // Оставляем так
     data class Error(val message: String) : DetailUiState
 }
+
 
 class ArtViewModel(private val repository: ArtRepository) : ViewModel() {
 
@@ -54,8 +55,14 @@ class ArtViewModel(private val repository: ArtRepository) : ViewModel() {
             detailUiState = DetailUiState.Loading
             try {
                 val (artwork, url) = repository.getArtworkDetails(id)
-                detailUiState = DetailUiState.Success(artwork, url)
-            } catch (e: Exception) { detailUiState = DetailUiState.Error(e.message ?: "Error") }
+                if (artwork != null) {
+                    detailUiState = DetailUiState.Success(artwork, url)
+                } else {
+                    detailUiState = DetailUiState.Error("Artwork not found")
+                }
+            } catch (e: Exception) {
+                detailUiState = DetailUiState.Error(e.message ?: "Error")
+            }
         }
     }
 
