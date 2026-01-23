@@ -8,7 +8,12 @@ import androidx.compose.ui.unit.dp
 import com.example.splitmate_nosova_2.viewmodel.CalculationViewModel
 
 @Composable
-fun ResultScreen(viewModel: CalculationViewModel, calcId: Long) {
+fun ResultScreen(
+    viewModel: CalculationViewModel,
+    calcId: Long,
+    onBackToEdit: () -> Unit,
+    onNewCalculation: () -> Unit
+) {
     val result = viewModel.getResultById(calcId)
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
@@ -34,6 +39,24 @@ fun ResultScreen(viewModel: CalculationViewModel, calcId: Long) {
             }
         } else {
             Text("Ошибка: Расчет не найден", color = MaterialTheme.colorScheme.error)
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Button(
+            onClick = onBackToEdit,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Back to edit")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedButton(
+            onClick = onNewCalculation,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("New calculation")
         }
     }
 }

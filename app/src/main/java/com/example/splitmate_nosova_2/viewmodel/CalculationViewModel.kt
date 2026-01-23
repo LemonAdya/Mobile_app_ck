@@ -1,9 +1,9 @@
 package com.example.splitmate_nosova_2.viewmodel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 
 data class CalculationResult(
     val id: Long,
@@ -14,45 +14,62 @@ data class CalculationResult(
     val perPerson: Double
 )
 
+data class CalculationUiState(
+    val billAmount: String = "",
+    val numPeople: String = "",
+    val history: List<CalculationResult> = emptyList()
+)
+
 class CalculationViewModel : ViewModel() {
 
-    private val _billAmount = MutableStateFlow("")
-    val billAmount = _billAmount.asStateFlow()
+    var uiState by mutableStateOf(CalculationUiState())
+        private set
 
-    private val _numPeople = MutableStateFlow("")
-    val numPeople = _numPeople.asStateFlow()
+    fun onBillChange(input: String) {
+        uiState = uiState.copy(billAmount = input)
+    }
 
-    private val _history = MutableStateFlow<List<CalculationResult>>(emptyList())
-    val history = _history.asStateFlow()
-
-    fun onBillChange(input: String) { _billAmount.value = input }
-    fun onPeopleChange(input: String) { _numPeople.value = input }
+    fun onPeopleChange(input: String) {
+        uiState = uiState.copy(numPeople = input)
+    }
 
     fun isValid(): Boolean {
-        val cleanBill = _billAmount.value.trim().replace(',', '.')
-        val cleanPeople = _numPeople.value.trim()
+        val cleanBill = uiState.billAmount.trim().replace(',', '.')
+        val cleanPeople = uiState.numPeople.trim()
 
         val bill = cleanBill.toDoubleOrNull() ?: 0.0
         val people = cleanPeople.toIntOrNull() ?: 0
 
         return bill > 0 && bill < 1_000_000 && people > 0 && people < 1000
     }
-    fun calculate(): Long {
-        val b = _billAmount.value.trim().replace(',', '.').toDouble()
-        val p = _numPeople.value.trim().toInt()
 
-        val tip = b * 0.10
-        val total = b + tip
-        val perPerson = total / p
+    fun calculate(): Long? {
+        if (!isValid()) return null
 
-        val newId = System.currentTimeMillis()
-        val result = CalculationResult(newId, b, p, tip, total, perPerson)
+        return try {
+            val b = uiState.billAmount.trim().replace(',', '.').toDouble()
+            val p = uiState.numPeople.trim().toInt()
 
-        _history.update { it + result }
-        return newId
+            val tip = b * 0.10
+            val total = b + tip
+            val perPerson = total / p
+
+            val newId = System.currentTimeMillis()
+            val result = CalculationResult(newId, b, p, tip, total, perPerson)
+
+            val updatedHistory = (uiState.history + result).takeLast(5)
+            uiState = uiState.copy(history = updatedHistory)
+            newId
+        } catch (e: Exception) {
+            null
+        }
     }
 
     fun getResultById(id: Long): CalculationResult? {
-        return _history.value.find { it.id == id }
+        return uiState.history.find { it.id == id }
+    }
+
+    fun resetInputs() {
+        uiState = uiState.copy(billAmount = "", numPeople = "")
     }
 }
