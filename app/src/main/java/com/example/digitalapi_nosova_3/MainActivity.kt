@@ -1,8 +1,10 @@
-package com.example.digitalapi_nosova_3 // ПРОВЕРЬТЕ ИМЯ ПАКЕТА!
+package com.example.digitalapi_nosova_3
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.*
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -13,13 +15,13 @@ import com.example.digitalapi_nosova_3.data.repository.ArtRepository
 import com.example.digitalapi_nosova_3.ui.screens.ArtDetailScreen
 import com.example.digitalapi_nosova_3.ui.screens.ArtListScreen
 import com.example.digitalapi_nosova_3.ui.viewmodel.ArtViewModel
+import com.example.digitalapi_nosova_3.ui.viewmodel.ArtViewModelFactory
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
-import androidx.compose.runtime.LaunchedEffect
 
-class MainActivity : ComponentActivity( ) {
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -35,9 +37,9 @@ class MainActivity : ComponentActivity( ) {
             .build()
 
         val apiService = retrofit.create(ArtApiService::class.java)
-
         val repository = ArtRepository(apiService)
-        val viewModel = ArtViewModel(repository)
+        val factory = ArtViewModelFactory(repository)
+        val viewModel = ViewModelProvider(this, factory)[ArtViewModel::class.java]
 
         setContent {
             val navController = rememberNavController()
@@ -46,21 +48,29 @@ class MainActivity : ComponentActivity( ) {
                 composable("list") {
                     ArtListScreen(
                         state = viewModel.uiState,
+                        searchQuery = viewModel.searchQuery,
                         favorites = viewModel.favorites,
-                        onSearch = { viewModel.searchArtworks(it) },
+                        onSearchQueryChange = { viewModel.onSearchQueryChange(it) },
                         onRefresh = { viewModel.loadArtworks(true) },
                         onToggleFavorite = { viewModel.toggleFavorite(it) },
                         onArtworkClick = { id -> navController.navigate("detail/$id") }
                     )
                 }
-                composable("detail/{id}") { backStack ->
-                    val id = backStack.arguments?.getString("id")?.toInt() ?: 0
-                    LaunchedEffect(id) { viewModel.loadArtworkDetails(id) }
+                composable(
+                    "detail/{id}",
+                    arguments = listOf(navArgument("id") { type = NavType.IntType })
+                ) { backStack ->
+                    val id = backStack.arguments?.getInt("id") ?: 0
+
+                    LaunchedEffect(id) {
+                        if (id > 0) {
+                            viewModel.loadArtworkDetails(id)
+                        }
+                    }
 
                     ArtDetailScreen(
                         state = viewModel.detailUiState,
-                        onBack = { navController.popBackStack() },
-                        onRetry = { viewModel.loadArtworkDetails(id) }
+                        onBack = { navController.popBackStack() }
                     )
                 }
             }
