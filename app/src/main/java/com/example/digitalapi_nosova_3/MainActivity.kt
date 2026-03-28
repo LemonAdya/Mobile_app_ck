@@ -12,8 +12,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.digitalapi_nosova_3.ui.screens.ArtDetailScreen
 import com.example.digitalapi_nosova_3.ui.screens.ArtListScreen
-import com.example.digitalapi_nosova_3.ui.viewmodel.ArtViewModel
-import com.example.digitalapi_nosova_3.ui.viewmodel.ArtUiState
+import com.example.digitalapi_nosova_3.ui.theme.DigitalAPI_Nosova_3Theme
+import com.example.digitalapi_nosova_3.ui.viewmodel.ArtDetailViewModel
+import com.example.digitalapi_nosova_3.ui.viewmodel.ArtListViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -21,47 +22,42 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val navController = rememberNavController()
-            val viewModel: ArtViewModel = hiltViewModel()
+            DigitalAPI_Nosova_3Theme {
+                val navController = rememberNavController()
 
-            val dbFavorites by viewModel.favorites.collectAsState()
-            val favoriteIds = dbFavorites.map { it.id }.toSet()
+                NavHost(navController = navController, startDestination = "list") {
+                    composable("list") {
+                        val viewModel: ArtListViewModel = hiltViewModel()
+                        val uiState by viewModel.uiState.collectAsState()
+                        val searchQuery by viewModel.searchQuery.collectAsState()
+                        val showOnlyFavorites by viewModel.showOnlyFavorites.collectAsState()
 
-
-            NavHost(navController = navController, startDestination = "list") {
-                composable("list") {
-                    ArtListScreen(
-                        state = viewModel.uiState,
-                        searchQuery = viewModel.searchQuery,
-                        favorites = favoriteIds,
-                        onSearchQueryChange = { viewModel.search(it) },
-                        onRefresh = { viewModel.loadArtworks(true) },
-                        onToggleFavorite = { id ->
-                            val current = viewModel.uiState
-                            if (current is ArtUiState.Success) {
-                                current.artworks.find { it.id == id }?.let { viewModel.toggleFavorite(it) }
-                            }
-                        },
-                        onArtworkClick = { id -> navController.navigate("detail/$id") }
-                    )
-                }
-
-
-                composable(
-                    route = "detail/{id}",
-                    arguments = listOf(navArgument("id") { type = NavType.StringType })
-                ) { backStackEntry ->
-                    val idString = backStackEntry.arguments?.getString("id") ?: "0"
-                    val id = idString.toInt()
-
-                    LaunchedEffect(id) {
-                        viewModel.loadDetail(id)
+                        ArtListScreen(
+                            state = uiState,
+                            searchQuery = searchQuery,
+                            showOnlyFavorites = showOnlyFavorites,
+                            onSearchQueryChange = { viewModel.updateSearchQuery(it) },
+                            onToggleFavoritesFilter = { viewModel.toggleFavoritesFilter() },
+                            onRefresh = { viewModel.refresh() },
+                            onToggleFavorite = { artwork -> viewModel.toggleFavorite(artwork) },
+                            onArtworkClick = { id -> navController.navigate("detail/$id") }
+                        )
                     }
 
-                    ArtDetailScreen(
-                        state = viewModel.detailUiState,
-                        onBack = { navController.popBackStack() }
-                    )
+                    composable(
+                        route = "detail/{id}",
+                        arguments = listOf(navArgument("id") { type = NavType.IntType })
+                    ) {
+                        val viewModel: ArtDetailViewModel = hiltViewModel()
+                        val uiState by viewModel.uiState.collectAsState()
+
+                        ArtDetailScreen(
+                            state = uiState,
+                            onBack = { navController.popBackStack() },
+                            onToggleFavorite = { viewModel.toggleFavorite() },
+                            onRetry = { viewModel.retry() }
+                        )
+                    }
                 }
             }
         }

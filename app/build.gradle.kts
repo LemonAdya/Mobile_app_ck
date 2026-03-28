@@ -8,9 +8,7 @@ plugins {
 
 android {
     namespace = "com.example.digitalapi_nosova_3"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.digitalapi_nosova_3"
@@ -35,8 +33,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
     buildFeatures {
         compose = true
