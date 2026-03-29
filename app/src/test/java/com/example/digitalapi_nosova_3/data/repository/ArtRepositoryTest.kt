@@ -174,18 +174,18 @@ class ArtRepositoryTest {
         coVerify(exactly = 0) { dao.insert(any()) }
     }
 
-    // Тест 9: Повторное добавление в избранное не создает дубль (нетривиальный)
+    // Тест 9: Повторный toggle удаляет запись (нетривиальный)
     @Test
-    fun `adding same artwork to favorites twice should not create duplicate`() = runTest {
+    fun `toggleFavorite twice should add then remove artwork`() = runTest {
         // Given
         coEvery { dao.isFavorite(testArtwork.id) } returns false andThen true
 
-        // When - добавляем первый раз
+        // When - первый toggle добавляет
         repository.toggleFavorite(testArtwork)
-        // пытаемся добавить второй раз
+        // второй toggle удаляет
         repository.toggleFavorite(testArtwork)
 
-        // Then - первый раз insert, второй раз delete (toggle)
+        // Then - первый раз insert, второй раз delete
         coVerify(exactly = 1) { dao.insert(any()) }
         coVerify(exactly = 1) { dao.deleteById(testArtwork.id) }
     }

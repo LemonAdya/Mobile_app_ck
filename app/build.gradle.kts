@@ -80,11 +80,14 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("androidx.arch.core:core-testing:2.2.0")
     testImplementation("com.google.dagger:hilt-android-testing:2.51.1")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:1.9.20")
     kspTest("com.google.dagger:hilt-compiler:2.51.1")
     
     // Android instrumentation tests
     androidTestImplementation("androidx.room:room-testing:$roomVersion")
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    androidTestImplementation("io.mockk:mockk-android:1.13.8")
+    androidTestImplementation("app.cash.turbine:turbine:1.0.0")
     androidTestImplementation("com.google.dagger:hilt-android-testing:2.51.1")
     kspAndroidTest("com.google.dagger:hilt-compiler:2.51.1")
     androidTestImplementation("androidx.test:runner:1.5.2")
