@@ -67,7 +67,7 @@ class ArtRepositoryIntegrationTest {
     }
 
     @Test
-    fun `adding artwork to favorites should persist in database`() = runTest {
+    fun `addingArtworkToFavoritesShouldPersistInDatabase`() = runTest {
         assertFalse(repository.isFavorite(testArtwork1.id))
 
         repository.toggleFavorite(testArtwork1)
@@ -81,7 +81,7 @@ class ArtRepositoryIntegrationTest {
     }
 
     @Test
-    fun `removing artwork from favorites should delete from database`() = runTest {
+    fun `removingArtworkFromFavoritesShouldDeleteFromDatabase`() = runTest {
         repository.toggleFavorite(testArtwork1)
         assertTrue(repository.isFavorite(testArtwork1.id))
 
@@ -94,7 +94,7 @@ class ArtRepositoryIntegrationTest {
     }
 
     @Test
-    fun `multiple favorites operations should maintain data integrity`() = runTest {
+    fun `multipleFavoritesOperationsShouldMaintainDataIntegrity`() = runTest {
         repository.toggleFavorite(testArtwork1)
         repository.toggleFavorite(testArtwork2)
 
@@ -111,7 +111,7 @@ class ArtRepositoryIntegrationTest {
     }
 
     @Test
-    fun `repository should integrate API and Room correctly`() = runTest {
+    fun `repositoryShouldIntegrateApiAndRoomCorrectly`() = runTest {
         val artworks = listOf(testArtwork1, testArtwork2)
         val response = ArtworkResponse(
             data = artworks,

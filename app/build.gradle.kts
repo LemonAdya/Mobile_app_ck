@@ -8,9 +8,7 @@ plugins {
 
 android {
     namespace = "com.example.digitalapi_nosova_3"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.digitalapi_nosova_3"
@@ -40,6 +38,12 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    packaging {
+        resources {
+            excludes += "META-INF/LICENSE.md"
+            excludes += "META-INF/LICENSE-notice.md"
+        }
     }
 }
 
@@ -92,4 +96,5 @@ dependencies {
     kspAndroidTest("com.google.dagger:hilt-compiler:2.51.1")
     androidTestImplementation("androidx.test:runner:1.5.2")
     androidTestImplementation("androidx.test:rules:1.5.0")
+    androidTestImplementation("org.jetbrains.kotlin:kotlin-test:1.9.20")
 }
