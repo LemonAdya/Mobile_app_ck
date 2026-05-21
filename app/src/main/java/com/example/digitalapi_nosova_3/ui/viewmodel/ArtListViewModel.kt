@@ -44,87 +44,85 @@ class ArtListViewModel @Inject constructor(
     private val _showOnlyFavorites = MutableStateFlow(false)
     val showOnlyFavorites: StateFlow<Boolean> = _showOnlyFavorites.asStateFlow()
 
-    private val favoritesFlow: Flow<List<ArtEntity>> = repository.getFavoritesFlow()
+    private val _listData = MutableStateFlow<ListData?>(null)
 
-    private val _refreshTrigger = MutableSharedFlow<Unit>(replay = 1)
+    private data class ListData(
+        val artworks: List<Artwork>,
+        val iiifUrl: String,
+        val isOffline: Boolean
+    )
 
     val autoSync = preferencesRepository.autoSyncFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     init {
-        _refreshTrigger.tryEmit(Unit)
+        loadArtworks()
     }
 
     val uiState: StateFlow<ArtListUiState> = combine(
-        _searchQuery
-            .debounce(500)
-            .distinctUntilChanged()
-            .flatMapLatest { query ->
-                flow { emit(query) }
-            },
-        _showOnlyFavorites,
-        favoritesFlow,
-        _refreshTrigger
-    ) { query, onlyFavorites, favorites, _ ->
-        Triple(query, onlyFavorites, favorites)
-    }
-        .flatMapLatest { (query, onlyFavorites, favorites) ->
-            flow {
-                emit(ArtListUiState.Loading)
-                
-                var isOffline = false
-                val (artworks, iiifUrl) = try {
-                    if (query.isBlank()) {
-                        repository.getArtworks()
-                    } else {
-                        repository.searchArtworks(query)
-                    }
-                } catch (e: Exception) {
-                    isOffline = true
-                    val cached = repository.getAllCachedArtworks().first()
-                    val filtered = if (query.isBlank()) {
-                        cached
-                    } else {
-                        cached.filter {
-                            it.title.contains(query, ignoreCase = true) ||
-                                it.artistTitle?.contains(query, ignoreCase = true) == true
-                        }
-                    }
-                    Pair(filtered.map { it.toArtwork() }, "https://www.artic.edu/iiif/2")
-                }
+        _listData,
+        repository.getFavoritesFlow(),
+        _showOnlyFavorites
+    ) { listData, favorites, onlyFavorites ->
+        if (listData == null) {
+            ArtListUiState.Loading
+        } else {
+            val favoriteIds = favorites.map { it.id }.toSet()
+            val filteredArtworks = if (onlyFavorites) {
+                listData.artworks.filter { it.id in favoriteIds }
+            } else {
+                listData.artworks
+            }
 
-                val favoriteIds = favorites.map { it.id }.toSet()
-                val filteredArtworks = if (onlyFavorites) {
-                    artworks.filter { it.id in favoriteIds }
-                } else {
-                    artworks
-                }
-
-                if (filteredArtworks.isEmpty()) {
-                    emit(ArtListUiState.Empty)
-                } else {
-                    emit(
-                        ArtListUiState.Success(
-                            artworks = filteredArtworks,
-                            iiifUrl = iiifUrl,
-                            favoriteIds = favoriteIds,
-                            isOffline = isOffline
-                        )
-                    )
-                }
+            if (filteredArtworks.isEmpty()) {
+                ArtListUiState.Empty
+            } else {
+                ArtListUiState.Success(
+                    artworks = filteredArtworks,
+                    iiifUrl = listData.iiifUrl,
+                    favoriteIds = favoriteIds,
+                    isOffline = listData.isOffline
+                )
             }
         }
-        .catch { e ->
-            emit(ArtListUiState.Error(e.message ?: "Unknown Error", ErrorType.UNKNOWN))
-        }
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = ArtListUiState.Loading
         )
 
+    private fun loadArtworks(forceRefresh: Boolean = false) {
+        val query = _searchQuery.value
+        viewModelScope.launch {
+            _listData.value = null
+            var isOffline = false
+            val (artworks, iiifUrl) = try {
+                if (query.isBlank()) {
+                    repository.getArtworks(forceRefresh)
+                } else {
+                    repository.searchArtworks(query)
+                }
+            } catch (e: Exception) {
+                isOffline = true
+                val cached = repository.getAllCachedArtworks().first()
+                val filtered = if (query.isBlank()) {
+                    cached
+                } else {
+                    cached.filter {
+                        it.title.contains(query, ignoreCase = true) ||
+                            it.artistTitle?.contains(query, ignoreCase = true) == true
+                    }
+                }
+                Pair(filtered.map { it.toArtwork() }, "https://www.artic.edu/iiif/2")
+            }
+            _listData.value = ListData(artworks, iiifUrl, isOffline)
+        }
+    }
+
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
+        loadArtworks()
     }
 
     fun toggleFavoritesFilter() {
@@ -132,9 +130,7 @@ class ArtListViewModel @Inject constructor(
     }
 
     fun refresh() {
-        viewModelScope.launch {
-            _refreshTrigger.emit(Unit)
-        }
+        loadArtworks(forceRefresh = true)
     }
 
     fun toggleFavorite(artwork: Artwork) {

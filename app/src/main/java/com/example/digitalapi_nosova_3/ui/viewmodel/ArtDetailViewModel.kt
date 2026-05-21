@@ -7,7 +7,11 @@ import com.example.digitalapi_nosova_3.data.local.NoteEntity
 import com.example.digitalapi_nosova_3.data.model.Artwork
 import com.example.digitalapi_nosova_3.data.repository.ArtRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -17,8 +21,7 @@ sealed interface DetailUiState {
         val artwork: Artwork,
         val iiifUrl: String,
         val isFavorite: Boolean,
-        val note: NoteEntity? = null,
-        val collectionIds: List<Long> = emptyList()
+        val note: NoteEntity? = null
     ) : DetailUiState
     data class Error(val message: String, val type: ErrorType) : DetailUiState
 }
@@ -31,45 +34,53 @@ class ArtDetailViewModel @Inject constructor(
 
     private val artworkId: Int = savedStateHandle.get<Int>("id") ?: 0
 
-    private val _loadTrigger = MutableSharedFlow<Unit>(replay = 1)
+    private val _detailData = MutableStateFlow<DetailData?>(null)
+
+    private data class DetailData(
+        val artwork: Artwork,
+        val iiifUrl: String,
+        val note: NoteEntity?
+    )
 
     init {
-        _loadTrigger.tryEmit(Unit)
+        loadDetail()
     }
 
     val uiState: StateFlow<DetailUiState> = combine(
-        _loadTrigger,
+        _detailData,
         repository.getFavoritesFlow()
-    ) { _, favorites ->
-        favorites.any { it.id == artworkId }
+    ) { detailData, favorites ->
+        if (detailData == null) {
+            DetailUiState.Loading
+        } else {
+            val isFav = favorites.any { it.id == artworkId }
+            DetailUiState.Success(detailData.artwork, detailData.iiifUrl, isFav, detailData.note)
+        }
     }
-        .flatMapLatest { isFavorite ->
-            flow {
-                emit(DetailUiState.Loading)
-                
-                try {
-                    val (artwork, iiifUrl) = repository.getArtworkDetails(artworkId)
-                    val note = repository.getNoteByArtworkId(artworkId)
-                    emit(DetailUiState.Success(artwork, iiifUrl, isFavorite, note))
-                    repository.addToHistory(artwork)
-                } catch (e: Exception) {
-                    val errorType = when {
-                        e.message?.contains("network", ignoreCase = true) == true -> ErrorType.NETWORK
-                        e.message?.contains("timeout", ignoreCase = true) == true -> ErrorType.NETWORK
-                        else -> ErrorType.UNKNOWN
-                    }
-                    emit(DetailUiState.Error(e.message ?: "Unknown Error", errorType))
-                }
-            }
-        }
-        .catch { e ->
-            emit(DetailUiState.Error(e.message ?: "Unknown Error", ErrorType.UNKNOWN))
-        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = DetailUiState.Loading
         )
+
+    private fun loadDetail() {
+        viewModelScope.launch {
+            _detailData.value = null
+            try {
+                val (artwork, iiifUrl) = repository.getArtworkDetails(artworkId)
+                val note = repository.getNoteByArtworkId(artworkId)
+                _detailData.value = DetailData(artwork, iiifUrl, note)
+                repository.addToHistory(artwork)
+            } catch (e: Exception) {
+                val errorType = when {
+                    e.message?.contains("network", ignoreCase = true) == true -> ErrorType.NETWORK
+                    e.message?.contains("timeout", ignoreCase = true) == true -> ErrorType.NETWORK
+                    else -> ErrorType.UNKNOWN
+                }
+                _detailData.value = null
+            }
+        }
+    }
 
     fun toggleFavorite() {
         viewModelScope.launch {
@@ -86,7 +97,7 @@ class ArtDetailViewModel @Inject constructor(
             val currentState = uiState.value
             if (currentState is DetailUiState.Success) {
                 val note = repository.getNoteByArtworkId(artworkId)
-                emitDetailStateWithNote(currentState, note)
+                _detailData.value = currentState.run { DetailData(artwork, iiifUrl, note) }
             }
         }
     }
@@ -96,15 +107,8 @@ class ArtDetailViewModel @Inject constructor(
             repository.deleteNote(artworkId)
             val currentState = uiState.value
             if (currentState is DetailUiState.Success) {
-                emitDetailStateWithNote(currentState, null)
+                _detailData.value = currentState.run { DetailData(artwork, iiifUrl, null) }
             }
-        }
-    }
-
-    private fun emitDetailStateWithNote(current: DetailUiState.Success, note: NoteEntity?) {
-        // Note is updated via loadTrigger re-emit
-        viewModelScope.launch {
-            _loadTrigger.emit(Unit)
         }
     }
 
@@ -121,8 +125,6 @@ class ArtDetailViewModel @Inject constructor(
     }
 
     fun retry() {
-        viewModelScope.launch {
-            _loadTrigger.emit(Unit)
-        }
+        loadDetail()
     }
 }

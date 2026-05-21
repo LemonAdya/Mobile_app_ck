@@ -1,17 +1,15 @@
 package com.example.digitalapi_nosova_3.ui.viewmodel
 
-import com.example.digitalapi_nosova_3.data.local.*
+import androidx.lifecycle.SavedStateHandle
+import com.example.digitalapi_nosova_3.data.local.NoteEntity
 import com.example.digitalapi_nosova_3.data.model.Artwork
-import com.example.digitalapi_nosova_3.data.preferences.UserPreferencesRepository
 import com.example.digitalapi_nosova_3.data.repository.ArtRepository
-import com.example.digitalapi_nosova_3.data.sync.SyncScheduler
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -23,7 +21,6 @@ import org.junit.Before
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ArtDetailViewModelTest {
@@ -48,7 +45,7 @@ class ArtDetailViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         repository = mockk(relaxed = true)
-        val savedStateHandle = androidx.lifecycle.SavedStateHandle(mapOf("id" to 42))
+        val savedStateHandle = SavedStateHandle(mapOf("id" to 42))
         every { repository.getFavoritesFlow() } returns flowOf(emptyList())
         coEvery { repository.getArtworkDetails(42) } returns Pair(testArtwork, testIiifUrl)
         coEvery { repository.getNoteByArtworkId(42) } returns null

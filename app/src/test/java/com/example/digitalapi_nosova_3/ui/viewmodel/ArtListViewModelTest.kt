@@ -9,7 +9,6 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -59,6 +58,7 @@ class ArtListViewModelTest {
         every { repository.getFavoritesFlow() } returns flowOf(emptyList())
         every { repository.getAllCachedArtworks() } returns flowOf(emptyList())
         every { preferencesRepository.autoSyncFlow } returns flowOf(false)
+        coEvery { repository.getArtworks(any()) } returns Pair(testArtworks, testIiifUrl)
         viewModel = ArtListViewModel(repository, preferencesRepository, syncScheduler)
     }
 
@@ -73,16 +73,16 @@ class ArtListViewModelTest {
     }
 
     @Test
-    fun `updateSearchQuery should update search query`() {
+    fun `updateSearchQuery should update search query`() = runTest {
         viewModel.updateSearchQuery("test")
+        advanceUntilIdle()
         assertEquals("test", viewModel.searchQuery.value)
     }
 
     @Test
-    fun `toggleFavoritesFilter should toggle showOnlyFavorites`() = runTest {
+    fun `toggleFavoritesFilter should toggle showOnlyFavorites`() {
         assertEquals(false, viewModel.showOnlyFavorites.value)
         viewModel.toggleFavoritesFilter()
-        advanceUntilIdle()
         assertEquals(true, viewModel.showOnlyFavorites.value)
     }
 
@@ -90,14 +90,14 @@ class ArtListViewModelTest {
     fun `setAutoSync true should schedule sync`() = runTest {
         viewModel.setAutoSync(true)
         advanceUntilIdle()
-        verify { syncScheduler.scheduleSync() }
+        io.mockk.verify { syncScheduler.scheduleSync() }
     }
 
     @Test
     fun `setAutoSync false should cancel sync`() = runTest {
         viewModel.setAutoSync(false)
         advanceUntilIdle()
-        verify { syncScheduler.cancelSync() }
+        io.mockk.verify { syncScheduler.cancelSync() }
     }
 
     @Test
@@ -119,5 +119,12 @@ class ArtListViewModelTest {
         viewModel.toggleFavorite(testArtwork)
         advanceUntilIdle()
         coVerify { repository.toggleFavorite(testArtwork) }
+    }
+
+    @Test
+    fun `refresh should call getArtworks with forceRefresh`() = runTest {
+        viewModel.refresh()
+        advanceUntilIdle()
+        coVerify { repository.getArtworks(true) }
     }
 }
