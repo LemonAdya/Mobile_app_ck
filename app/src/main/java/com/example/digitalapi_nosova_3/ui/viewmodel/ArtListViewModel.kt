@@ -2,9 +2,11 @@ package com.example.digitalapi_nosova_3.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.digitalapi_nosova_3.data.local.ArtEntity
+import com.example.digitalapi_nosova_3.data.local.*
 import com.example.digitalapi_nosova_3.data.model.Artwork
+import com.example.digitalapi_nosova_3.data.preferences.UserPreferencesRepository
 import com.example.digitalapi_nosova_3.data.repository.ArtRepository
+import com.example.digitalapi_nosova_3.data.sync.SyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
@@ -16,7 +18,8 @@ sealed interface ArtListUiState {
     data class Success(
         val artworks: List<Artwork>,
         val iiifUrl: String,
-        val favoriteIds: Set<Int>
+        val favoriteIds: Set<Int>,
+        val isOffline: Boolean = false
     ) : ArtListUiState
     data class Error(val message: String, val type: ErrorType) : ArtListUiState
     object Empty : ArtListUiState
@@ -30,88 +33,84 @@ enum class ErrorType {
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class ArtListViewModel @Inject constructor(
-    private val repository: ArtRepository
+    private val repository: ArtRepository,
+    private val preferencesRepository: UserPreferencesRepository,
+    private val syncScheduler: SyncScheduler
 ) : ViewModel() {
 
-    // Источник 1: Поисковый запрос (UI)
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    // Источник 2: Фильтр "только избранное" (UI)
     private val _showOnlyFavorites = MutableStateFlow(false)
     val showOnlyFavorites: StateFlow<Boolean> = _showOnlyFavorites.asStateFlow()
 
-    // Источник 3: Избранное из Room (Data Layer)
     private val favoritesFlow: Flow<List<ArtEntity>> = repository.getFavoritesFlow()
 
-    // Триггер для ручного обновления
     private val _refreshTrigger = MutableSharedFlow<Unit>(replay = 1)
 
+    val autoSync = preferencesRepository.autoSyncFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     init {
-        _refreshTrigger.tryEmit(Unit) // Начальная загрузка
+        _refreshTrigger.tryEmit(Unit)
     }
 
-    // Реактивная композиция потоков
     val uiState: StateFlow<ArtListUiState> = combine(
-        // Поток 1: Поиск с debounce и distinctUntilChanged
         _searchQuery
-            .debounce(500) // Задержка 500мс после ввода
-            .distinctUntilChanged() // Избегаем дублирующихся запросов
+            .debounce(500)
+            .distinctUntilChanged()
             .flatMapLatest { query ->
-                // Отменяем предыдущий поиск при новом запросе
-                flow {
-                    emit(query)
-                }
+                flow { emit(query) }
             },
-        // Поток 2: Фильтр "только избранное"
         _showOnlyFavorites,
-        // Поток 3: Избранное из Room
         favoritesFlow,
-        // Поток 4: Триггер обновления
         _refreshTrigger
     ) { query, onlyFavorites, favorites, _ ->
-        // Объединяем все источники
         Triple(query, onlyFavorites, favorites)
     }
         .flatMapLatest { (query, onlyFavorites, favorites) ->
             flow {
                 emit(ArtListUiState.Loading)
                 
-                try {
-                    // Загружаем данные
-                    val (artworks, iiifUrl) = if (query.isBlank()) {
+                var isOffline = false
+                val (artworks, iiifUrl) = try {
+                    if (query.isBlank()) {
                         repository.getArtworks()
                     } else {
                         repository.searchArtworks(query)
                     }
-
-                    // Применяем фильтр "только избранное"
-                    val favoriteIds = favorites.map { it.id }.toSet()
-                    val filteredArtworks = if (onlyFavorites) {
-                        artworks.filter { it.id in favoriteIds }
-                    } else {
-                        artworks
-                    }
-
-                    // Определяем состояние
-                    if (filteredArtworks.isEmpty()) {
-                        emit(ArtListUiState.Empty)
-                    } else {
-                        emit(
-                            ArtListUiState.Success(
-                                artworks = filteredArtworks,
-                                iiifUrl = iiifUrl,
-                                favoriteIds = favoriteIds
-                            )
-                        )
-                    }
                 } catch (e: Exception) {
-                    val errorType = when {
-                        e.message?.contains("network", ignoreCase = true) == true -> ErrorType.NETWORK
-                        e.message?.contains("timeout", ignoreCase = true) == true -> ErrorType.NETWORK
-                        else -> ErrorType.UNKNOWN
+                    isOffline = true
+                    val cached = repository.getAllCachedArtworks().first()
+                    val filtered = if (query.isBlank()) {
+                        cached
+                    } else {
+                        cached.filter {
+                            it.title.contains(query, ignoreCase = true) ||
+                                it.artistTitle?.contains(query, ignoreCase = true) == true
+                        }
                     }
-                    emit(ArtListUiState.Error(e.message ?: "Unknown Error", errorType))
+                    Pair(filtered.map { it.toArtwork() }, "https://www.artic.edu/iiif/2")
+                }
+
+                val favoriteIds = favorites.map { it.id }.toSet()
+                val filteredArtworks = if (onlyFavorites) {
+                    artworks.filter { it.id in favoriteIds }
+                } else {
+                    artworks
+                }
+
+                if (filteredArtworks.isEmpty()) {
+                    emit(ArtListUiState.Empty)
+                } else {
+                    emit(
+                        ArtListUiState.Success(
+                            artworks = filteredArtworks,
+                            iiifUrl = iiifUrl,
+                            favoriteIds = favoriteIds,
+                            isOffline = isOffline
+                        )
+                    )
                 }
             }
         }
@@ -141,7 +140,55 @@ class ArtListViewModel @Inject constructor(
     fun toggleFavorite(artwork: Artwork) {
         viewModelScope.launch {
             repository.toggleFavorite(artwork)
-            // Room автоматически обновит favoritesFlow, что вызовет пересчет uiState
         }
     }
+
+    fun setAutoSync(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setAutoSync(enabled)
+            if (enabled) {
+                syncScheduler.scheduleSync()
+            } else {
+                syncScheduler.cancelSync()
+            }
+        }
+    }
+
+    val collections = repository.getAllCollections()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val history = repository.getRecentHistory()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun createCollection(name: String, description: String?) {
+        viewModelScope.launch { repository.createCollection(name, description) }
+    }
+
+    fun deleteCollection(collection: CollectionEntity) {
+        viewModelScope.launch { repository.deleteCollection(collection) }
+    }
+
+    fun addToCollection(collectionId: Long, artworkId: Int) {
+        viewModelScope.launch { repository.addArtworkToCollection(collectionId, artworkId) }
+    }
+
+    fun removeFromCollection(collectionId: Long, artworkId: Int) {
+        viewModelScope.launch { repository.removeArtworkFromCollection(collectionId, artworkId) }
+    }
+
+    fun clearHistory() {
+        viewModelScope.launch { repository.clearHistory() }
+    }
+}
+
+private fun com.example.digitalapi_nosova_3.data.local.CachedArtworkEntity.toArtwork(): com.example.digitalapi_nosova_3.data.model.Artwork {
+    return com.example.digitalapi_nosova_3.data.model.Artwork(
+        id = id,
+        title = title,
+        artistTitle = artistTitle,
+        imageId = imageId,
+        description = description,
+        dateDisplay = dateDisplay,
+        mediumDisplay = mediumDisplay
+    )
 }

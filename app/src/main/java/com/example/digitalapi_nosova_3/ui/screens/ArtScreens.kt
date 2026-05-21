@@ -7,7 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -28,14 +28,18 @@ fun ArtListScreen(
     onToggleFavoritesFilter: () -> Unit,
     onRefresh: () -> Unit,
     onToggleFavorite: (Artwork) -> Unit,
-    onArtworkClick: (Int) -> Unit
+    onArtworkClick: (Int) -> Unit,
+    onNavigateToCollections: () -> Unit = {},
+    onNavigateToHistory: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {}
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Art Gallery") },
                 actions = {
-                    // Фильтр "только избранное"
                     IconButton(onClick = onToggleFavoritesFilter) {
                         Icon(
                             imageVector = if (showOnlyFavorites) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -46,12 +50,50 @@ fun ArtListScreen(
                     IconButton(onClick = onRefresh) {
                         Icon(Icons.Default.Refresh, contentDescription = "Обновить")
                     }
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Collections") },
+                            onClick = { showMenu = false; onNavigateToCollections() },
+                            leadingIcon = { Icon(Icons.Default.CollectionsBookmark, null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("History") },
+                            onClick = { showMenu = false; onNavigateToHistory() },
+                            leadingIcon = { Icon(Icons.Default.History, null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Settings") },
+                            onClick = { showMenu = false; onNavigateToSettings() },
+                            leadingIcon = { Icon(Icons.Default.Settings, null) }
+                        )
+                    }
                 }
             )
         }
     ) { padding ->
         Column(Modifier.padding(padding)) {
-            // Поисковая строка
+            if (state is ArtListUiState.Success && state.isOffline) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.CloudOff, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Offline mode", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChange,
@@ -65,7 +107,6 @@ fun ArtListScreen(
                 singleLine = true
             )
 
-            // Индикатор активного фильтра
             if (showOnlyFavorites) {
                 Surface(
                     modifier = Modifier
@@ -196,8 +237,19 @@ fun ArtDetailScreen(
     state: DetailUiState,
     onBack: () -> Unit,
     onToggleFavorite: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onSaveNote: (String) -> Unit = {},
+    onDeleteNote: () -> Unit = {}
 ) {
+    var showNoteDialog by remember { mutableStateOf(false) }
+    var noteText by remember { mutableStateOf("") }
+
+    LaunchedEffect(state) {
+        if (state is DetailUiState.Success) {
+            noteText = state.note?.text ?: ""
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -209,6 +261,12 @@ fun ArtDetailScreen(
                 },
                 actions = {
                     if (state is DetailUiState.Success) {
+                        IconButton(onClick = { showNoteDialog = true }) {
+                            Icon(
+                                if (state.note != null) Icons.Default.Edit else Icons.Default.Add,
+                                contentDescription = "Note"
+                            )
+                        }
                         IconButton(onClick = onToggleFavorite) {
                             Icon(
                                 imageVector = if (state.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -308,10 +366,66 @@ fun ArtDetailScreen(
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }
+                            if (state.note != null) {
+                                Spacer(Modifier.height(16.dp))
+                                OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Text("Моя заметка", style = MaterialTheme.typography.titleSmall)
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(state.note.text)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    if (showNoteDialog) {
+        AlertDialog(
+            onDismissRequest = { showNoteDialog = false },
+            title = { Text(if (noteText.isBlank()) "Добавить заметку" else "Редактировать заметку") },
+            text = {
+                OutlinedTextField(
+                    value = noteText,
+                    onValueChange = { noteText = it },
+                    label = { Text("Заметка") },
+                    maxLines = 5,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (noteText.isNotBlank()) {
+                            onSaveNote(noteText)
+                        }
+                        showNoteDialog = false
+                    }
+                ) {
+                    Text("Сохранить")
+                }
+            },
+            dismissButton = {
+                Row {
+                    if (state is DetailUiState.Success && state.note != null) {
+                        TextButton(
+                            onClick = {
+                                onDeleteNote()
+                                noteText = ""
+                                showNoteDialog = false
+                            }
+                        ) {
+                            Text("Удалить")
+                        }
+                    }
+                    TextButton(onClick = { showNoteDialog = false }) {
+                        Text("Отмена")
+                    }
+                }
+            }
+        )
     }
 }
