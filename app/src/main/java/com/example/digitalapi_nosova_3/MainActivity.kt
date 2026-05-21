@@ -115,10 +115,11 @@ class MainActivity : ComponentActivity() {
                         val collection = collections.find { it.id == collectionId }
                         val uiState by listViewModel.uiState.collectAsState()
                         val iiifUrl = (uiState as? ArtListUiState.Success)?.iiifUrl ?: "https://www.artic.edu/iiif/2"
+                        val collectionArtworks by listViewModel.getArtworksInCollectionFlow(collectionId).collectAsState(initial = emptyList())
 
                         CollectionDetailScreen(
                             collection = collection,
-                            artworks = emptyList(),
+                            artworks = collectionArtworks,
                             iiifUrl = iiifUrl,
                             onArtworkClick = { id -> navController.navigate("detail/$id") },
                             onRemoveArtwork = { artId -> listViewModel.removeFromCollection(collectionId, artId) },

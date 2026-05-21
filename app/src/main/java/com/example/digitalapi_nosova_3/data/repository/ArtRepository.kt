@@ -106,6 +106,14 @@ class ArtRepository @Inject constructor(
     fun getArtworkIdsInCollection(collectionId: Long): Flow<List<Int>> =
         collectionDao.getArtworkIdsInCollection(collectionId)
 
+    fun getArtworksInCollection(collectionId: Long): Flow<List<Artwork>> {
+        return collectionDao.getArtworkIdsInCollection(collectionId).map { ids ->
+            ids.mapNotNull { id ->
+                cachedArtworkDao.getCachedArtwork(id)?.toArtwork()
+            }
+        }
+    }
+
     suspend fun addArtworkToCollection(collectionId: Long, artworkId: Int) {
         collectionDao.addArtworkToCollection(CollectionArtworkCrossRef(collectionId, artworkId))
     }

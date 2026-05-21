@@ -179,6 +179,9 @@ class ArtListViewModel @Inject constructor(
     fun clearHistory() {
         viewModelScope.launch { repository.clearHistory() }
     }
+
+    fun getArtworksInCollectionFlow(collectionId: Long): Flow<List<Artwork>> =
+        repository.getArtworksInCollection(collectionId)
 }
 
 private fun com.example.digitalapi_nosova_3.data.local.CachedArtworkEntity.toArtwork(): com.example.digitalapi_nosova_3.data.model.Artwork {

@@ -54,7 +54,7 @@ fun CollectionDetailScreen(
 
             if (artworks.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No artworks in this collection")
+                    Text("No artworks in this collection. Add artworks from the gallery.")
                 }
             } else {
                 LazyColumn(
