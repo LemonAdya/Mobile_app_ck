@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.example.digitalapi_nosova_3.data.local.CollectionEntity
 import com.example.digitalapi_nosova_3.data.model.Artwork
 import com.example.digitalapi_nosova_3.ui.viewmodel.ArtListUiState
 import com.example.digitalapi_nosova_3.ui.viewmodel.DetailUiState
@@ -239,10 +240,13 @@ fun ArtDetailScreen(
     onToggleFavorite: () -> Unit,
     onRetry: () -> Unit,
     onSaveNote: (String) -> Unit = {},
-    onDeleteNote: () -> Unit = {}
+    onDeleteNote: () -> Unit = {},
+    collections: List<CollectionEntity> = emptyList(),
+    onAddToCollection: (Long) -> Unit = {}
 ) {
     var showNoteDialog by remember { mutableStateOf(false) }
     var noteText by remember { mutableStateOf("") }
+    var showCollectionDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(state) {
         if (state is DetailUiState.Success) {
@@ -266,6 +270,9 @@ fun ArtDetailScreen(
                                 if (state.note != null) Icons.Default.Edit else Icons.Default.Add,
                                 contentDescription = "Note"
                             )
+                        }
+                        IconButton(onClick = { showCollectionDialog = true }) {
+                            Icon(Icons.Default.Bookmark, contentDescription = "Add to Collection")
                         }
                         IconButton(onClick = onToggleFavorite) {
                             Icon(
@@ -381,6 +388,37 @@ fun ArtDetailScreen(
                 }
             }
         }
+    }
+
+    if (showCollectionDialog) {
+        AlertDialog(
+            onDismissRequest = { showCollectionDialog = false },
+            title = { Text("Add to Collection") },
+            text = {
+                if (collections.isEmpty()) {
+                    Box(Modifier.padding(16.dp), contentAlignment = Alignment.Center) {
+                        Text("No collections yet. Create one from the Collections screen.")
+                    }
+                } else {
+                    LazyColumn {
+                        items(collections) { collection ->
+                            TextButton(
+                                onClick = {
+                                    onAddToCollection(collection.id)
+                                    showCollectionDialog = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(collection.name, modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCollectionDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showNoteDialog) {

@@ -73,11 +73,14 @@ class ArtDetailViewModelTest {
 
     @Test
     fun `loadDetail error should set Error state`() = runTest {
+        val savedStateHandle = SavedStateHandle(mapOf("id" to 42))
+        every { repository.getFavoritesFlow() } returns flowOf(emptyList())
         coEvery { repository.getArtworkDetails(42) } throws RuntimeException("Network error")
-
+        coEvery { repository.getNoteByArtworkId(42) } returns null
+        val errorVm = ArtDetailViewModel(repository, savedStateHandle)
         advanceUntilIdle()
 
-        val state = viewModel.uiState.value
+        val state = errorVm.uiState.value
         assertIs<DetailUiState.Error>(state)
     }
 

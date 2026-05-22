@@ -57,8 +57,14 @@ class ArtListViewModelTest {
         syncScheduler = mockk(relaxed = true)
         every { repository.getFavoritesFlow() } returns flowOf(emptyList())
         every { repository.getAllCachedArtworks() } returns flowOf(emptyList())
+        every { repository.getAllCollections() } returns flowOf(emptyList())
+        every { repository.getRecentHistory(any()) } returns flowOf(emptyList())
         every { preferencesRepository.autoSyncFlow } returns flowOf(false)
-        coEvery { repository.getArtworks(any()) } returns Pair(testArtworks, testIiifUrl)
+        every { preferencesRepository.themeFlow } returns flowOf("system")
+        every { preferencesRepository.cacheTtlDaysFlow } returns flowOf(7)
+        coEvery { repository.getArtworks(false) } returns Pair(testArtworks, testIiifUrl)
+        coEvery { repository.getArtworks(true) } returns Pair(testArtworks, testIiifUrl)
+        coEvery { repository.searchArtworks(any()) } returns Pair(testArtworks, testIiifUrl)
         viewModel = ArtListViewModel(repository, preferencesRepository, syncScheduler)
     }
 
@@ -126,5 +132,19 @@ class ArtListViewModelTest {
         viewModel.refresh()
         advanceUntilIdle()
         coVerify { repository.getArtworks(true) }
+    }
+
+    @Test
+    fun `setTheme should call preferencesRepository setTheme`() = runTest {
+        viewModel.setTheme("dark")
+        advanceUntilIdle()
+        coVerify { preferencesRepository.setTheme("dark") }
+    }
+
+    @Test
+    fun `setCacheTtlDays should call preferencesRepository setCacheTtlDays`() = runTest {
+        viewModel.setCacheTtlDays(3)
+        advanceUntilIdle()
+        coVerify { preferencesRepository.setCacheTtlDays(3) }
     }
 }

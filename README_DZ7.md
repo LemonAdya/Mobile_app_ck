@@ -38,8 +38,8 @@
 
 ### Тесты
 **Unit-тесты (бизнес-логика):**
-- `ArtRepositoryTest` — 12 тестов (кеш, fallback, коллекции, заметки, история)
-- `ArtListViewModelTest` — 8 тестов (search, favorites, sync, collections)
+- `ArtRepositoryTest` — 14 тестов (кеш, fallback, TTL expiry, коллекции, заметки, история, clearHistory)
+- `ArtListViewModelTest` — 11 тестов (search, favorites, sync, collections, setTheme, setCacheTtlDays)
 - `ArtDetailViewModelTest` — 9 тестов (detail, notes, collections, retry)
 - `OfflineBehaviorTest` — 6 тестов (offline fallback, cached search, persistence)
 - `SyncWorkerTest` — 2 теста (sync success, sync failure)
@@ -48,4 +48,10 @@
 **Интеграционные тесты:**
 - `ArtRepositoryIntegrationTest` — 9 тестов (Room + Repository, collections, notes, history, cache)
 
-**Итого: 52+ теста**
+**Итого: 58 тестов, 0 failures**
+
+### TTL кэша
+- `cacheTtlDays` параметризован: ViewModel передаёт значение из DataStore в Repository
+- `getArtworks(forceRefresh, ttlDays)` проверяет expiryTime = now - ttlDays * 24h
+- `clearExpiredCache` — фоновая очистка через WorkManager
+- Настройка TTL через SettingsScreen сохраняется в DataStore

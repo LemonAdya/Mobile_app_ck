@@ -20,11 +20,18 @@ class ArtRepository @Inject constructor(
 ) {
     private var cachedIiifUrl: String = "https://www.artic.edu/iiif/2"
 
-    suspend fun getArtworks(forceRefresh: Boolean = false): Pair<List<Artwork>, String> {
+    suspend fun getArtworks(
+        forceRefresh: Boolean = false,
+        ttlDays: Int = 7
+    ): Pair<List<Artwork>, String> {
         val cachedList = cachedArtworkDao.getAllCachedArtworks().first()
+        val expiryTime = System.currentTimeMillis() - (ttlDays * 24 * 60 * 60 * 1000L)
 
         if (!forceRefresh && cachedList.isNotEmpty()) {
-            return Pair(cachedList.map { it.toArtwork() }, cachedIiifUrl)
+            val isValid = cachedList.all { it.cachedAt >= expiryTime }
+            if (isValid) {
+                return Pair(cachedList.map { it.toArtwork() }, cachedIiifUrl)
+            }
         }
 
         return try {

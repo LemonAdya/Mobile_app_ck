@@ -108,7 +108,7 @@ class ArtRepositoryTest {
         val (data, url) = repository.searchArtworks("Monet")
 
         assertEquals(1, data.size)
-        assertTrue(data[0].title.contains("Monet"))
+        assertTrue(data[0].title?.contains("Monet") == true)
     }
 
     @Test
@@ -174,6 +174,31 @@ class ArtRepositoryTest {
         repository.cacheArtwork(testArtwork, null)
 
         coVerify { cachedArtworkDao.insert(any()) }
+    }
+
+    @Test
+    fun `getArtworks fetches from API when cache is expired (ttlDays)`() = runTest {
+        val oldCached = CachedArtworkEntity(
+            id = 1, title = "Old", artistTitle = "Artist", imageId = "img1",
+            description = null, dateDisplay = null, mediumDisplay = null,
+            cachedAt = 0L, imageLocalPath = null
+        )
+        coEvery { cachedArtworkDao.getAllCachedArtworks() } returns flowOf(listOf(oldCached))
+        val artworks = listOf(testArtwork)
+        val response = ArtworkResponse(data = artworks, config = testConfig)
+        coEvery { api.getArtworks() } returns response
+
+        val (data, url) = repository.getArtworks(forceRefresh = false, ttlDays = 1)
+
+        assertEquals(artworks, data)
+        coVerify { api.getArtworks() }
+    }
+
+    @Test
+    fun `clearHistory calls clearAll`() = runTest {
+        repository.clearHistory()
+
+        coVerify { historyDao.clearAll() }
     }
 
     @Test

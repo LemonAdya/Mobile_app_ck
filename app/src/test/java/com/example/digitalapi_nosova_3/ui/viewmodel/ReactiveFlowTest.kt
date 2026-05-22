@@ -45,6 +45,11 @@ class ReactiveFlowTest {
 
     private val testIiifUrl = "https://www.artic.edu/iiif/2"
 
+    private val testArtworks = listOf(
+        testArtwork,
+        Artwork(2, "Art 2", "Artist 2", "img2", null, null, null)
+    )
+
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
@@ -53,7 +58,12 @@ class ReactiveFlowTest {
         syncScheduler = mockk(relaxed = true)
         every { repository.getFavoritesFlow() } returns flowOf(emptyList())
         every { repository.getAllCachedArtworks() } returns flowOf(emptyList())
+        every { repository.getAllCollections() } returns flowOf(emptyList())
+        every { repository.getRecentHistory(any()) } returns flowOf(emptyList())
         every { preferencesRepository.autoSyncFlow } returns flowOf(false)
+        coEvery { repository.getArtworks(false) } returns Pair(testArtworks, testIiifUrl)
+        coEvery { repository.getArtworks(true) } returns Pair(testArtworks, testIiifUrl)
+        coEvery { repository.searchArtworks(any()) } returns Pair(testArtworks, testIiifUrl)
         viewModel = ArtListViewModel(repository, preferencesRepository, syncScheduler)
     }
 
@@ -153,28 +163,35 @@ class ReactiveFlowTest {
     }
 
     @Test
-    fun `favorites flow emits additions and removals`() = runTest {
-        val entity1 = ArtEntity(1, "Art 1", "Artist 1", "img1")
-        val entity2 = ArtEntity(2, "Art 2", "Artist 2", "img2")
+    fun `favorites flow reflects in uiState favoriteIds`() = runTest {
+        val artwork1 = Artwork(1, "Art 1", "Artist 1", "img1", null, null, null)
+        val artwork2 = Artwork(2, "Art 2", "Artist 2", "img2", null, null, null)
         val favoritesFlow = MutableStateFlow<List<ArtEntity>>(emptyList())
         every { repository.getFavoritesFlow() } returns favoritesFlow
+        coEvery { repository.getArtworks(false) } returns Pair(listOf(artwork1, artwork2), testIiifUrl)
 
         val vm = ArtListViewModel(repository, preferencesRepository, syncScheduler)
+        advanceUntilIdle()
 
-        vm.favorites.test {
-            assertEquals(emptyList(), awaitItem())
+        vm.uiState.test {
+            val initial = awaitItem()
+            assertIs<ArtListUiState.Success>(initial)
+            assertEquals(emptySet(), initial.favoriteIds)
 
-            favoritesFlow.value = listOf(entity1)
-            assertEquals(listOf(entity1), awaitItem())
+            favoritesFlow.value = listOf(ArtEntity(1, "Art 1", "Artist 1", "img1"))
+            advanceUntilIdle()
+            val withOne = awaitItem()
+            assertIs<ArtListUiState.Success>(withOne)
+            assertEquals(setOf(1), withOne.favoriteIds)
 
-            favoritesFlow.value = listOf(entity1, entity2)
-            assertEquals(listOf(entity1, entity2), awaitItem())
-
-            favoritesFlow.value = listOf(entity2)
-            assertEquals(listOf(entity2), awaitItem())
-
-            favoritesFlow.value = emptyList()
-            assertEquals(emptyList(), awaitItem())
+            favoritesFlow.value = listOf(
+                ArtEntity(1, "Art 1", "Artist 1", "img1"),
+                ArtEntity(2, "Art 2", "Artist 2", "img2")
+            )
+            advanceUntilIdle()
+            val withBoth = awaitItem()
+            assertIs<ArtListUiState.Success>(withBoth)
+            assertEquals(setOf(1, 2), withBoth.favoriteIds)
 
             cancelAndIgnoreRemainingEvents()
         }

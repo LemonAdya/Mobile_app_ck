@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         val viewModel: ArtDetailViewModel = hiltViewModel()
                         val uiState by viewModel.uiState.collectAsState()
+                        val collections by viewModel.collections.collectAsState()
 
                         ArtDetailScreen(
                             state = uiState,
@@ -59,21 +60,25 @@ class MainActivity : ComponentActivity() {
                             onToggleFavorite = { viewModel.toggleFavorite() },
                             onRetry = { viewModel.retry() },
                             onSaveNote = { text -> viewModel.saveNote(text) },
-                            onDeleteNote = { viewModel.deleteNote() }
+                            onDeleteNote = { viewModel.deleteNote() },
+                            collections = collections,
+                            onAddToCollection = { viewModel.addToCollection(it) }
                         )
                     }
 
                     composable("settings") {
                         val listViewModel: ArtListViewModel = hiltViewModel()
-                        val theme by listViewModel.autoSync.collectAsState(initial = false)
+                        val autoSync by listViewModel.autoSync.collectAsState()
+                        val theme by listViewModel.theme.collectAsState()
+                        val cacheTtlDays by listViewModel.cacheTtlDays.collectAsState()
 
                         SettingsScreen(
-                            theme = "system",
-                            autoSync = theme,
-                            cacheTtlDays = 7,
-                            onThemeChange = {},
+                            theme = theme,
+                            autoSync = autoSync,
+                            cacheTtlDays = cacheTtlDays,
+                            onThemeChange = { listViewModel.setTheme(it) },
                             onAutoSyncChange = { listViewModel.setAutoSync(it) },
-                            onCacheTtlChange = {},
+                            onCacheTtlChange = { listViewModel.setCacheTtlDays(it) },
                             onBack = { navController.popBackStack() }
                         )
                     }

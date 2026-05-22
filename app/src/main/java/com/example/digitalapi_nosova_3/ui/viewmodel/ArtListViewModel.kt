@@ -55,6 +55,12 @@ class ArtListViewModel @Inject constructor(
     val autoSync = preferencesRepository.autoSyncFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val theme = preferencesRepository.themeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
+
+    val cacheTtlDays = preferencesRepository.cacheTtlDaysFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 7)
+
     init {
         loadArtworks()
     }
@@ -88,7 +94,7 @@ class ArtListViewModel @Inject constructor(
     }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.Eagerly,
             initialValue = ArtListUiState.Loading
         )
 
@@ -97,9 +103,10 @@ class ArtListViewModel @Inject constructor(
         viewModelScope.launch {
             _listData.value = null
             var isOffline = false
+            val ttlDays = cacheTtlDays.value
             val (artworks, iiifUrl) = try {
                 if (query.isBlank()) {
-                    repository.getArtworks(forceRefresh)
+                    repository.getArtworks(forceRefresh, ttlDays)
                 } else {
                     repository.searchArtworks(query)
                 }
@@ -148,6 +155,14 @@ class ArtListViewModel @Inject constructor(
                 syncScheduler.cancelSync()
             }
         }
+    }
+
+    fun setTheme(theme: String) {
+        viewModelScope.launch { preferencesRepository.setTheme(theme) }
+    }
+
+    fun setCacheTtlDays(days: Int) {
+        viewModelScope.launch { preferencesRepository.setCacheTtlDays(days) }
     }
 
     val collections = repository.getAllCollections()

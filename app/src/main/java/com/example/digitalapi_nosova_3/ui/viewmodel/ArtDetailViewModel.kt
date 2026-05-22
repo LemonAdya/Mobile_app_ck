@@ -35,6 +35,7 @@ class ArtDetailViewModel @Inject constructor(
     private val artworkId: Int = savedStateHandle.get<Int>("id") ?: 0
 
     private val _detailData = MutableStateFlow<DetailData?>(null)
+    private val _error = MutableStateFlow<Pair<String, ErrorType>?>(null)
 
     private data class DetailData(
         val artwork: Artwork,
@@ -48,23 +49,27 @@ class ArtDetailViewModel @Inject constructor(
 
     val uiState: StateFlow<DetailUiState> = combine(
         _detailData,
+        _error,
         repository.getFavoritesFlow()
-    ) { detailData, favorites ->
-        if (detailData == null) {
-            DetailUiState.Loading
-        } else {
-            val isFav = favorites.any { it.id == artworkId }
-            DetailUiState.Success(detailData.artwork, detailData.iiifUrl, isFav, detailData.note)
+    ) { detailData, error, favorites ->
+        when {
+            error != null -> DetailUiState.Error(error.first, error.second)
+            detailData == null -> DetailUiState.Loading
+            else -> {
+                val isFav = favorites.any { it.id == artworkId }
+                DetailUiState.Success(detailData.artwork, detailData.iiifUrl, isFav, detailData.note)
+            }
         }
     }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.Eagerly,
             initialValue = DetailUiState.Loading
         )
 
     private fun loadDetail() {
         viewModelScope.launch {
+            _error.value = null
             _detailData.value = null
             try {
                 val (artwork, iiifUrl) = repository.getArtworkDetails(artworkId)
@@ -77,7 +82,7 @@ class ArtDetailViewModel @Inject constructor(
                     e.message?.contains("timeout", ignoreCase = true) == true -> ErrorType.NETWORK
                     else -> ErrorType.UNKNOWN
                 }
-                _detailData.value = null
+                _error.value = Pair(e.message ?: "Unknown error", errorType)
             }
         }
     }
@@ -111,6 +116,9 @@ class ArtDetailViewModel @Inject constructor(
             }
         }
     }
+
+    val collections = repository.getAllCollections()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun addToCollection(collectionId: Long) {
         viewModelScope.launch {
