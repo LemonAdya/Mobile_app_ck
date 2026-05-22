@@ -3,6 +3,7 @@ package com.example.digitalapi_nosova_3
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
@@ -20,7 +21,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            DigitalAPI_Nosova_3Theme {
+            val settingsVm: ArtListViewModel = hiltViewModel()
+            val theme by settingsVm.theme.collectAsState()
+            val isDark = when (theme) {
+                "dark" -> true
+                "light" -> false
+                else -> isSystemInDarkTheme()
+            }
+            DigitalAPI_Nosova_3Theme(darkTheme = isDark) {
                 val navController = rememberNavController()
 
                 NavHost(navController = navController, startDestination = "list") {
