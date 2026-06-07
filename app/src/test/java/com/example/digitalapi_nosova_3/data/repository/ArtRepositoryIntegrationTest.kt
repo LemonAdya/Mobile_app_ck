@@ -124,9 +124,8 @@ class ArtRepositoryIntegrationTest {
 
     @Test
     fun `collection should contain artworks added to it`() = runTest {
-        repository.cacheArtwork(testArtwork1, null)
         val collectionId = repository.createCollection("Test", null)
-        repository.addArtworkToCollection(collectionId, testArtwork1.id)
+        repository.addArtworkToCollection(collectionId, testArtwork1)
 
         val artworkIds = repository.getArtworkIdsInCollection(collectionId).first()
         assertEquals(1, artworkIds.size)
@@ -135,9 +134,8 @@ class ArtRepositoryIntegrationTest {
 
     @Test
     fun `removing artwork from collection should update collection`() = runTest {
-        repository.cacheArtwork(testArtwork1, null)
         val collectionId = repository.createCollection("Test", null)
-        repository.addArtworkToCollection(collectionId, testArtwork1.id)
+        repository.addArtworkToCollection(collectionId, testArtwork1)
         repository.removeArtworkFromCollection(collectionId, testArtwork1.id)
 
         val artworkIds = repository.getArtworkIdsInCollection(collectionId).first()

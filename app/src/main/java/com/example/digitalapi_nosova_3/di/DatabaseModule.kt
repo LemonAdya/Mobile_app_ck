@@ -77,7 +77,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             "art_database"
         )
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .fallbackToDestructiveMigration()
             .build()
     }

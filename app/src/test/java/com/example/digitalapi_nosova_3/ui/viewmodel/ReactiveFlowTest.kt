@@ -57,12 +57,12 @@ class ReactiveFlowTest {
         preferencesRepository = mockk(relaxed = true)
         syncScheduler = mockk(relaxed = true)
         every { repository.getFavoritesFlow() } returns flowOf(emptyList())
+        every { repository.getFavoriteArtworks() } returns flowOf(emptyList())
         every { repository.getAllCachedArtworks() } returns flowOf(emptyList())
         every { repository.getAllCollections() } returns flowOf(emptyList())
         every { repository.getRecentHistory(any()) } returns flowOf(emptyList())
         every { preferencesRepository.autoSyncFlow } returns flowOf(false)
-        coEvery { repository.getArtworks(false) } returns Pair(testArtworks, testIiifUrl)
-        coEvery { repository.getArtworks(true) } returns Pair(testArtworks, testIiifUrl)
+        coEvery { repository.getArtworks(any(), any()) } returns Pair(testArtworks, testIiifUrl)
         coEvery { repository.searchArtworks(any()) } returns Pair(testArtworks, testIiifUrl)
         viewModel = ArtListViewModel(repository, preferencesRepository, syncScheduler)
     }
@@ -168,7 +168,7 @@ class ReactiveFlowTest {
         val artwork2 = Artwork(2, "Art 2", "Artist 2", "img2", null, null, null)
         val favoritesFlow = MutableStateFlow<List<ArtEntity>>(emptyList())
         every { repository.getFavoritesFlow() } returns favoritesFlow
-        coEvery { repository.getArtworks(false) } returns Pair(listOf(artwork1, artwork2), testIiifUrl)
+        coEvery { repository.getArtworks(any(), any()) } returns Pair(listOf(artwork1, artwork2), testIiifUrl)
 
         val vm = ArtListViewModel(repository, preferencesRepository, syncScheduler)
         advanceUntilIdle()

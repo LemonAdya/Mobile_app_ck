@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val settingsVm: ArtListViewModel = hiltViewModel()
+            val settingsVm: SettingsViewModel = hiltViewModel()
             val theme by settingsVm.theme.collectAsState()
             val isDark = when (theme) {
                 "dark" -> true
@@ -75,18 +75,18 @@ class MainActivity : ComponentActivity() {
                     }
 
                     composable("settings") {
-                        val listViewModel: ArtListViewModel = hiltViewModel()
-                        val autoSync by listViewModel.autoSync.collectAsState()
-                        val theme by listViewModel.theme.collectAsState()
-                        val cacheTtlDays by listViewModel.cacheTtlDays.collectAsState()
+                        val settingsViewModel: SettingsViewModel = hiltViewModel()
+                        val autoSync by settingsViewModel.autoSync.collectAsState()
+                        val theme by settingsViewModel.theme.collectAsState()
+                        val cacheTtlDays by settingsViewModel.cacheTtlDays.collectAsState()
 
                         SettingsScreen(
                             theme = theme,
                             autoSync = autoSync,
                             cacheTtlDays = cacheTtlDays,
-                            onThemeChange = { listViewModel.setTheme(it) },
-                            onAutoSyncChange = { listViewModel.setAutoSync(it) },
-                            onCacheTtlChange = { listViewModel.setCacheTtlDays(it) },
+                            onThemeChange = { settingsViewModel.setTheme(it) },
+                            onAutoSyncChange = { settingsViewModel.setAutoSync(it) },
+                            onCacheTtlChange = { settingsViewModel.setCacheTtlDays(it) },
                             onBack = { navController.popBackStack() }
                         )
                     }

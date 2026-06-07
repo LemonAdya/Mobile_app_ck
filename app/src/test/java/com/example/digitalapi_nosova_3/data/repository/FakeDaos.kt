@@ -3,6 +3,7 @@ package com.example.digitalapi_nosova_3.data.repository
 import com.example.digitalapi_nosova_3.data.local.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 
 class FakeArtDao : ArtDao {
     private val favorites = MutableStateFlow<List<ArtEntity>>(emptyList())
@@ -15,7 +16,7 @@ class FakeArtDao : ArtDao {
 
 class FakeCollectionDao : CollectionDao {
     private val collections = MutableStateFlow<List<CollectionEntity>>(emptyList())
-    private val crossRefs = mutableListOf<CollectionArtworkCrossRef>()
+    private val crossRefs = MutableStateFlow<List<CollectionArtworkCrossRef>>(emptyList())
 
     override fun getAllCollections(): Flow<List<CollectionEntity>> = collections
     override suspend fun getCollectionById(id: Long): CollectionEntity? = collections.value.find { it.id == id }
@@ -31,15 +32,25 @@ class FakeCollectionDao : CollectionDao {
         collections.value = collections.value.filter { it.id != collection.id }
     }
     override fun getArtworkIdsInCollection(collectionId: Long): Flow<List<Int>> =
-        MutableStateFlow(crossRefs.filter { it.collectionId == collectionId }.map { it.artworkId })
+        crossRefs.map { refs: List<CollectionArtworkCrossRef> -> 
+            refs.filter { ref -> ref.collectionId == collectionId }.map { ref -> ref.artworkId } 
+        }
+    
+    override fun getArtworksInCollection(collectionId: Long): Flow<List<CollectionArtworkCrossRef>> =
+        crossRefs.map { refs: List<CollectionArtworkCrossRef> -> 
+            refs.filter { ref -> ref.collectionId == collectionId } 
+        }
+    
     override suspend fun addArtworkToCollection(crossRef: CollectionArtworkCrossRef) {
-        if (crossRef !in crossRefs) crossRefs.add(crossRef)
+        if (crossRefs.value.none { it.collectionId == crossRef.collectionId && it.artworkId == crossRef.artworkId }) {
+            crossRefs.value = crossRefs.value + crossRef
+        }
     }
     override suspend fun removeArtworkFromCollection(collectionId: Long, artworkId: Int) {
-        crossRefs.removeAll { it.collectionId == collectionId && it.artworkId == artworkId }
+        crossRefs.value = crossRefs.value.filterNot { it.collectionId == collectionId && it.artworkId == artworkId }
     }
     override suspend fun isArtworkInCollection(collectionId: Long, artworkId: Int): Boolean =
-        crossRefs.any { it.collectionId == collectionId && it.artworkId == artworkId }
+        crossRefs.value.any { it.collectionId == collectionId && it.artworkId == artworkId }
 }
 
 class FakeNoteDao : NoteDao {

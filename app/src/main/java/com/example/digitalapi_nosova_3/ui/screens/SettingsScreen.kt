@@ -20,6 +20,7 @@ fun SettingsScreen(
     onBack: () -> Unit
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showTtlDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -90,7 +91,10 @@ fun SettingsScreen(
                 }
             }
 
-            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { showTtlDialog = true }
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -117,6 +121,25 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showThemeDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showTtlDialog) {
+        AlertDialog(
+            onDismissRequest = { showTtlDialog = false },
+            title = { Text("Cache TTL (days)") },
+            text = {
+                Column {
+                    RadioButtonOption("1 day", cacheTtlDays == 1) { onCacheTtlChange(1); showTtlDialog = false }
+                    RadioButtonOption("3 days", cacheTtlDays == 3) { onCacheTtlChange(3); showTtlDialog = false }
+                    RadioButtonOption("7 days", cacheTtlDays == 7) { onCacheTtlChange(7); showTtlDialog = false }
+                    RadioButtonOption("14 days", cacheTtlDays == 14) { onCacheTtlChange(14); showTtlDialog = false }
+                    RadioButtonOption("30 days", cacheTtlDays == 30) { onCacheTtlChange(30); showTtlDialog = false }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showTtlDialog = false }) { Text("Cancel") }
             }
         )
     }

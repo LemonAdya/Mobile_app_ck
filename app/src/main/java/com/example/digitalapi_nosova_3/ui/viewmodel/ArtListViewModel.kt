@@ -63,32 +63,49 @@ class ArtListViewModel @Inject constructor(
 
     init {
         loadArtworks()
+        
+        viewModelScope.launch {
+            _searchQuery
+                .debounce(300)
+                .collectLatest {
+                    loadArtworks()
+                }
+        }
     }
 
     val uiState: StateFlow<ArtListUiState> = combine(
         _listData,
         repository.getFavoritesFlow(),
+        repository.getFavoriteArtworks(),
         _showOnlyFavorites
-    ) { listData, favorites, onlyFavorites ->
-        if (listData == null) {
-            ArtListUiState.Loading
-        } else {
-            val favoriteIds = favorites.map { it.id }.toSet()
-            val filteredArtworks = if (onlyFavorites) {
-                listData.artworks.filter { it.id in favoriteIds }
-            } else {
-                listData.artworks
+    ) { listData, favorites, favoriteArtworks, onlyFavorites ->
+        val favoriteIds = favorites.map { it.id }.toSet()
+        
+        when {
+            onlyFavorites -> {
+                if (favoriteArtworks.isEmpty()) {
+                    ArtListUiState.Empty
+                } else {
+                    ArtListUiState.Success(
+                        artworks = favoriteArtworks,
+                        iiifUrl = listData?.iiifUrl ?: "https://www.artic.edu/iiif/2",
+                        favoriteIds = favoriteIds,
+                        isOffline = false
+                    )
+                }
             }
-
-            if (filteredArtworks.isEmpty()) {
-                ArtListUiState.Empty
-            } else {
-                ArtListUiState.Success(
-                    artworks = filteredArtworks,
-                    iiifUrl = listData.iiifUrl,
-                    favoriteIds = favoriteIds,
-                    isOffline = listData.isOffline
-                )
+            listData == null -> ArtListUiState.Loading
+            else -> {
+                if (listData.artworks.isEmpty()) {
+                    ArtListUiState.Empty
+                } else {
+                    ArtListUiState.Success(
+                        artworks = listData.artworks,
+                        iiifUrl = listData.iiifUrl,
+                        favoriteIds = favoriteIds,
+                        isOffline = listData.isOffline
+                    )
+                }
             }
         }
     }
@@ -129,7 +146,6 @@ class ArtListViewModel @Inject constructor(
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
-        loadArtworks()
     }
 
     fun toggleFavoritesFilter() {
@@ -179,8 +195,8 @@ class ArtListViewModel @Inject constructor(
         viewModelScope.launch { repository.deleteCollection(collection) }
     }
 
-    fun addToCollection(collectionId: Long, artworkId: Int) {
-        viewModelScope.launch { repository.addArtworkToCollection(collectionId, artworkId) }
+    fun addToCollection(collectionId: Long, artwork: Artwork) {
+        viewModelScope.launch { repository.addArtworkToCollection(collectionId, artwork) }
     }
 
     fun removeFromCollection(collectionId: Long, artworkId: Int) {

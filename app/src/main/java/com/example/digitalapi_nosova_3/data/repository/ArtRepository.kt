@@ -86,6 +86,15 @@ class ArtRepository @Inject constructor(
     }
 
     fun getFavoritesFlow(): Flow<List<ArtEntity>> = artDao.getAllFavorites()
+    
+    fun getFavoriteArtworks(): Flow<List<Artwork>> {
+        return artDao.getAllFavorites().map { favorites ->
+            favorites.mapNotNull { fav ->
+                cachedArtworkDao.getCachedArtwork(fav.id)?.toArtwork()
+            }
+        }
+    }
+    
     suspend fun isFavorite(id: Int): Boolean = artDao.isFavorite(id)
 
     suspend fun toggleFavorite(art: Artwork) {
@@ -114,15 +123,31 @@ class ArtRepository @Inject constructor(
         collectionDao.getArtworkIdsInCollection(collectionId)
 
     fun getArtworksInCollection(collectionId: Long): Flow<List<Artwork>> {
-        return collectionDao.getArtworkIdsInCollection(collectionId).map { ids ->
-            ids.mapNotNull { id ->
-                cachedArtworkDao.getCachedArtwork(id)?.toArtwork()
+        return collectionDao.getArtworksInCollection(collectionId).map { crossRefs ->
+            crossRefs.map { crossRef ->
+                Artwork(
+                    id = crossRef.artworkId,
+                    title = crossRef.title,
+                    artistTitle = crossRef.artistTitle,
+                    imageId = crossRef.imageId,
+                    description = null,
+                    dateDisplay = null,
+                    mediumDisplay = null
+                )
             }
         }
     }
 
-    suspend fun addArtworkToCollection(collectionId: Long, artworkId: Int) {
-        collectionDao.addArtworkToCollection(CollectionArtworkCrossRef(collectionId, artworkId))
+    suspend fun addArtworkToCollection(collectionId: Long, artwork: Artwork) {
+        collectionDao.addArtworkToCollection(
+            CollectionArtworkCrossRef(
+                collectionId = collectionId,
+                artworkId = artwork.id,
+                title = artwork.title ?: "",
+                artistTitle = artwork.artistTitle,
+                imageId = artwork.imageId
+            )
+        )
     }
 
     suspend fun removeArtworkFromCollection(collectionId: Long, artworkId: Int) {

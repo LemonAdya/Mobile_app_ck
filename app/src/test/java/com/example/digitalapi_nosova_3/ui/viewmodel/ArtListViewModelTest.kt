@@ -56,14 +56,14 @@ class ArtListViewModelTest {
         preferencesRepository = mockk(relaxed = true)
         syncScheduler = mockk(relaxed = true)
         every { repository.getFavoritesFlow() } returns flowOf(emptyList())
+        every { repository.getFavoriteArtworks() } returns flowOf(emptyList())
         every { repository.getAllCachedArtworks() } returns flowOf(emptyList())
         every { repository.getAllCollections() } returns flowOf(emptyList())
         every { repository.getRecentHistory(any()) } returns flowOf(emptyList())
         every { preferencesRepository.autoSyncFlow } returns flowOf(false)
         every { preferencesRepository.themeFlow } returns flowOf("system")
         every { preferencesRepository.cacheTtlDaysFlow } returns flowOf(7)
-        coEvery { repository.getArtworks(false) } returns Pair(testArtworks, testIiifUrl)
-        coEvery { repository.getArtworks(true) } returns Pair(testArtworks, testIiifUrl)
+        coEvery { repository.getArtworks(any(), any()) } returns Pair(testArtworks, testIiifUrl)
         coEvery { repository.searchArtworks(any()) } returns Pair(testArtworks, testIiifUrl)
         viewModel = ArtListViewModel(repository, preferencesRepository, syncScheduler)
     }
@@ -131,7 +131,7 @@ class ArtListViewModelTest {
     fun `refresh should call getArtworks with forceRefresh`() = runTest {
         viewModel.refresh()
         advanceUntilIdle()
-        coVerify { repository.getArtworks(true) }
+        coVerify { repository.getArtworks(true, any()) }
     }
 
     @Test

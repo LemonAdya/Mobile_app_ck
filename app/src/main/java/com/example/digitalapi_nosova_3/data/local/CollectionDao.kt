@@ -28,6 +28,9 @@ interface CollectionDao {
     @Query("SELECT artworkId FROM collection_artworks WHERE collectionId = :collectionId")
     fun getArtworkIdsInCollection(collectionId: Long): Flow<List<Int>>
 
+    @Query("SELECT * FROM collection_artworks WHERE collectionId = :collectionId")
+    fun getArtworksInCollection(collectionId: Long): Flow<List<CollectionArtworkCrossRef>>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun addArtworkToCollection(crossRef: CollectionArtworkCrossRef)
 

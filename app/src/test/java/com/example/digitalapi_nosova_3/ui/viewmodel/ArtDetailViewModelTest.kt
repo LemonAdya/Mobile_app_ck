@@ -122,10 +122,12 @@ class ArtDetailViewModelTest {
 
     @Test
     fun `addToCollection should call repository`() = runTest {
+        advanceUntilIdle()
+        
         viewModel.addToCollection(1L)
         advanceUntilIdle()
 
-        coVerify { repository.addArtworkToCollection(1L, 42) }
+        coVerify { repository.addArtworkToCollection(1L, testArtwork) }
     }
 
     @Test

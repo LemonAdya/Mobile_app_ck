@@ -17,5 +17,8 @@ import androidx.room.ForeignKey
 )
 data class CollectionArtworkCrossRef(
     val collectionId: Long,
-    val artworkId: Int
+    val artworkId: Int,
+    val title: String,
+    val artistTitle: String?,
+    val imageId: String?
 )

@@ -5,6 +5,7 @@ import com.example.digitalapi_nosova_3.data.local.*
 import com.example.digitalapi_nosova_3.data.model.ApiConfig
 import com.example.digitalapi_nosova_3.data.model.Artwork
 import com.example.digitalapi_nosova_3.data.model.ArtworkResponse
+import com.example.digitalapi_nosova_3.data.preferences.UserPreferencesRepository
 import com.example.digitalapi_nosova_3.data.repository.ArtRepository
 import com.example.digitalapi_nosova_3.data.repository.FakeArtDao
 import com.example.digitalapi_nosova_3.data.repository.FakeCachedArtworkDao
@@ -12,8 +13,11 @@ import com.example.digitalapi_nosova_3.data.repository.FakeCollectionDao
 import com.example.digitalapi_nosova_3.data.repository.FakeHistoryDao
 import com.example.digitalapi_nosova_3.data.repository.FakeNoteDao
 import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
@@ -23,6 +27,8 @@ class SyncWorkerTest {
 
     private lateinit var api: ArtApiService
     private lateinit var repository: ArtRepository
+    private lateinit var preferencesRepository: UserPreferencesRepository
+    private lateinit var cachedArtworkDao: FakeCachedArtworkDao
 
     private val testArtwork1 = Artwork(
         id = 1,
@@ -37,29 +43,34 @@ class SyncWorkerTest {
     @Before
     fun setup() {
         api = mockk()
+        preferencesRepository = mockk()
         val artDao = FakeArtDao()
         val collectionDao = FakeCollectionDao()
         val noteDao = FakeNoteDao()
         val historyDao = FakeHistoryDao()
-        val cachedArtworkDao = FakeCachedArtworkDao()
+        cachedArtworkDao = FakeCachedArtworkDao()
         repository = ArtRepository(api, artDao, collectionDao, noteDao, historyDao, cachedArtworkDao)
+        every { preferencesRepository.cacheTtlDaysFlow } returns flowOf(7)
     }
 
     @Test
-    fun `syncAllArtworks should cache artworks from API`() = runTest {
+    fun `sync and clear cache should work correctly`() = runTest {
         val artworks = listOf(testArtwork1)
         val response = ArtworkResponse(data = artworks, config = ApiConfig(iiifUrl = "https://example.com"))
         coEvery { api.getArtworks() } returns response
 
         repository.syncAllArtworks()
+        val ttlDays = preferencesRepository.cacheTtlDaysFlow.first()
+        repository.clearExpiredCache(ttlDays)
 
         val cached = repository.getAllCachedArtworks().first()
         assertEquals(1, cached.size)
         assertEquals(testArtwork1.id, cached[0].id)
+        coVerify { api.getArtworks() }
     }
 
     @Test
-    fun `syncAllArtworks should throw on network error`() = runTest {
+    fun `sync should propagate network errors`() = runTest {
         coEvery { api.getArtworks() } throws RuntimeException("Network error")
 
         var threw = false

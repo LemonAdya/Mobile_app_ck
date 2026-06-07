@@ -60,7 +60,7 @@ fun CollectionsScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(collections) { collection ->
+                items(collections, key = { it.id }) { collection ->
                     CollectionItem(collection = collection, onClick = { onCollectionClick(collection.id) })
                 }
             }

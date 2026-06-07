@@ -122,7 +122,10 @@ class ArtDetailViewModel @Inject constructor(
 
     fun addToCollection(collectionId: Long) {
         viewModelScope.launch {
-            repository.addArtworkToCollection(collectionId, artworkId)
+            val currentState = uiState.value
+            if (currentState is DetailUiState.Success) {
+                repository.addArtworkToCollection(collectionId, currentState.artwork)
+            }
         }
     }
 

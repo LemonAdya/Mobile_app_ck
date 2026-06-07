@@ -19,6 +19,7 @@ class OfflineBehaviorTest {
 
     private lateinit var api: ArtApiService
     private lateinit var repository: ArtRepository
+    private lateinit var cachedArtworkDao: FakeCachedArtworkDao
 
     private val testArtwork1 = Artwork(
         id = 1,
@@ -47,7 +48,7 @@ class OfflineBehaviorTest {
         val collectionDao = FakeCollectionDao()
         val noteDao = FakeNoteDao()
         val historyDao = FakeHistoryDao()
-        val cachedArtworkDao = FakeCachedArtworkDao()
+        cachedArtworkDao = FakeCachedArtworkDao()
         repository = ArtRepository(api, artDao, collectionDao, noteDao, historyDao, cachedArtworkDao)
     }
 
@@ -131,12 +132,13 @@ class OfflineBehaviorTest {
             description = null, dateDisplay = null, mediumDisplay = null,
             cachedAt = System.currentTimeMillis(), imageLocalPath = null
         )
-        repository.cacheArtwork(testArtwork1.copy(id = 1), null)
-        repository.cacheArtwork(testArtwork2.copy(id = 2), null)
+        cachedArtworkDao.insert(oldArtwork)
+        cachedArtworkDao.insert(newArtwork)
 
         repository.clearExpiredCache(7)
 
         val cached = repository.getAllCachedArtworks().first()
-        assertTrue(cached.isNotEmpty())
+        assertEquals(1, cached.size)
+        assertEquals(newArtwork.id, cached[0].id)
     }
 }
