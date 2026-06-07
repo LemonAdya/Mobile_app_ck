@@ -1,0 +1,57 @@
+# Final Project - Art Gallery App
+
+## Что добавлено
+
+### Новые экраны
+- **SettingsScreen** — настройки приложения (тема, авто-синхронизация, TTL кеша)
+- **HistoryScreen** — история просмотров произведений
+- **CollectionsScreen** — управление пользовательскими коллекциями
+- **CollectionDetailScreen** — просмотр содержимого коллекции
+- **ArtDetailScreen** обновлён — добавлены заметки к произведениям
+
+### Новые пользовательские данные
+- **Коллекции** (`collections` + `collection_artworks`) — пользователь создаёт коллекции, добавляет/удаляет произведения
+- **Заметки** (`notes`) — пользователь добавляет/редактирует/удаляет заметки к произведениям
+- **История** (`history`) — автоматически сохраняется при просмотре деталей
+- **Кеш** (`cached_artworks`) — данные API сохраняются локально для offline-доступа
+- **Настройки** (DataStore) — тема, авто-синхронизация, TTL кеша
+
+### Новые сценарии
+1. **Коллекции** — создание коллекции → добавление произведений из галереи → просмотр коллекции → удаление произведений → удаление коллекции
+2. **Заметки** — открытие деталей → добавление заметки → редактирование → удаление → заметка отображается в UI
+3. **История** — автоматическое сохранение при просмотре → просмотр истории → переход к произведению → очистка истории
+4. **Offline-first** — приложение загружает данные из кеша → при ошибке сети использует кешированные данные → поиск работает offline
+
+### Offline-first архитектура
+- При запуске данные загружаются из Room кеша (`cached_artworks`)
+- Если сеть доступна — данные обновляются из API и сохраняются в кеш
+- При ошибке сети — приложение использует кешированные данные
+- Поиск работает offline по кешированным данным
+- Индикатор "Offline mode" отображается при работе без сети
+- TTL кеша настраивается через DataStore
+
+### Фоновая обработка (WorkManager)
+- **SyncWorker** — фоновая синхронизация данных каждые 6 часов
+- Запускается только при наличии сети (`NetworkType.CONNECTED`)
+- Автоматически включается/выключается через настройки
+- Использует Hilt WorkerFactory для DI
+
+### Тесты
+**Unit-тесты (бизнес-логика):**
+- `ArtRepositoryTest` — 14 тестов (кеш, fallback, TTL expiry, коллекции, заметки, история, clearHistory)
+- `ArtListViewModelTest` — 11 тестов (search, favorites, sync, collections, setTheme, setCacheTtlDays)
+- `ArtDetailViewModelTest` — 9 тестов (detail, notes, collections, retry)
+- `OfflineBehaviorTest` — 6 тестов (offline fallback, cached search, persistence)
+- `SyncWorkerTest` — 2 теста (sync success, sync failure)
+- `ReactiveFlowTest` — 6 тестов (flow sequences, toggles, favorites)
+
+**Интеграционные тесты:**
+- `ArtRepositoryIntegrationTest` — 9 тестов (Room + Repository, collections, notes, history, cache)
+
+**Итого: 58 тестов, 0 failures**
+
+### TTL кэша
+- `cacheTtlDays` параметризован: ViewModel передаёт значение из DataStore в Repository
+- `getArtworks(forceRefresh, ttlDays)` проверяет expiryTime = now - ttlDays * 24h
+- `clearExpiredCache` — фоновая очистка через WorkManager
+- Настройка TTL через SettingsScreen сохраняется в DataStore
